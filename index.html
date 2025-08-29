@@ -6,7 +6,6 @@
   <title>Årshjul</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372a3ff'/%3E%3C/svg%3E">
   <style>
-    /* ====== Teman via CSS-variabler ====== */
     :root{
       --bg:#0b1220; --fg:#e6eefc; --muted:#9fb0d3; --card:#101a33; --border:#1e2b4f;
       --accent:#72a3ff; --accent2:#ffcf70; --good:#5bd6a2; --bad:#ff7a7a;
@@ -23,54 +22,41 @@
     header{display:flex; gap:12px; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border); background:linear-gradient(180deg,rgba(127,127,127,0.06),transparent)}
     h1{font-size:clamp(20px,2.6vw,28px); margin:0; letter-spacing:.3px}
 
-    /* ====== 50/50 layout med full höjd ====== */
     .wrap{
       display:grid;
       grid-template-columns: 1fr 1fr; /* 50/50 */
       gap:18px;
       padding:18px;
-      height: calc(100vh - 78px); /* minus headern */
+      height: calc(100vh - 78px);
       align-items: stretch;
     }
-    @media (max-width: 980px){
-      .wrap{ grid-template-columns:1fr; height:auto; }
-    }
+    @media (max-width: 980px){ .wrap{ grid-template-columns:1fr; height:auto; } }
 
     .card{
       background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px;
-      display:flex; flex-direction:column; min-height:0; /* viktigt för flex-scroll */
+      display:flex; flex-direction:column; min-height:0;
     }
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    input, select, button, textarea{background:color-mix(in hsl, var(--card) 70%, black 10%); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
-    :root.light input, :root.light select, :root.light button, :root.light textarea{ background:color-mix(in hsl, var(--card) 85%, white 10%); }
+    input, select, button{background:color-mix(in hsl, var(--card) 70%, black 10%); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+    :root.light input,:root.light select,:root.light button{ background:color-mix(in hsl, var(--card) 85%, white 10%) }
     button{cursor:pointer}
     .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:color-mix(in hsl, var(--card) 80%, black 5%)}
+    .right{margin-left:auto}
 
-    /* Vänster kort: sök + hjul + legend */
     .controls{margin-bottom:12px}
-    .stage{display:grid; place-items:center; flex:1 1 auto; min-height:0;} /* tar resterande höjd */
+    .stage{display:grid; place-items:center; flex:1 1 auto; min-height:0;}
     svg{max-width:100%; height:auto}
     .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+    .legend .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px}
+    .legend .dot{width:10px; height:10px; border-radius:999px}
 
-    /* Höger kort: lista med scroll */
     .list{display:flex; flex-direction:column; gap:10px; overflow:auto; flex:1 1 auto; min-height:0;}
     .item{background:color-mix(in hsl, var(--card) 80%, black 5%); border:1px solid var(--border); border-radius:12px; padding:10px}
     .item h3{margin:0 0 6px; font-size:15px}
     .item small{color:var(--muted)}
-
-    .admin{display:none;}
-    .admin.show{display:block}
-    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-    .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
-    .mt{margin-top:12px}
-    .right{margin-left:auto}
-    .hint{color:var(--muted); font-size:12px}
-    .sp{height:8px}
     a{color:var(--accent)}
     .error{background:#2a0f14; border:1px solid #5a1b25; color:#ffd2d2; padding:10px; border-radius:10px; margin-top:10px; display:none}
 
-    .legend .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px}
-    .legend .dot{width:10px; height:10px; border-radius:999px}
     #tooltip{position:fixed; pointer-events:none; z-index:50; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:12px; box-shadow:0 6px 20px rgba(0,0,0,.25); display:none; max-width:260px}
   </style>
 </head>
@@ -80,11 +66,11 @@
     <span class="pill">Datakälla: Google Sheet</span>
     <span class="pill">TZ: Europe/Stockholm</span>
     <div class="right"></div>
+    <a href="admin.html" class="pill">Admin</a>
     <label class="pill" style="gap:6px; cursor:pointer">
       <input id="themeSwitch" type="checkbox" />
       <span id="themeLabel">Mörkt läge</span>
     </label>
-    <button id="toggle-admin" style="margin-left:8px">Admin</button>
   </header>
 
   <div id="tooltip" aria-hidden="true"></div>
@@ -110,43 +96,12 @@
     </section>
   </div>
 
-  <!-- Admin -->
-  <section class="card admin" id="admin">
-    <h2 style="margin:0 0 8px">Adminpanel</h2>
-    <div class="hint">Klistra in Web App-URL & din ADMIN_TOKEN. POST går som form-data (ingen CORS-preflight).</div>
-    <div class="grid2 mt">
-      <input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" />
-      <input id="apiKey" placeholder="ADMIN_TOKEN" />
-    </div>
-    <h3 style="margin:14px 0 6px">Lägg till / uppdatera händelse</h3>
-    <div class="grid3">
-      <input id="evId" placeholder="id (tomt = nytt)" />
-      <input id="title" placeholder="Titel" />
-      <input id="categoryInput" placeholder="Kategori" />
-    </div>
-    <div class="grid3 mt">
-      <input id="start" type="date" />
-      <input id="end" type="date" />
-      <input id="color" type="color" value="#72a3ff" />
-    </div>
-    <div class="grid2 mt">
-      <input id="link" placeholder="Länk (valfritt)" />
-      <input id="location" placeholder="Plats (valfritt)" />
-    </div>
-    <textarea id="desc" class="mt" rows="3" placeholder="Beskrivning"></textarea>
-    <div class="row mt">
-      <button id="save">Spara</button>
-      <button id="del" style="background:#2a0f14; border-color:#5a1b25">Ta bort</button>
-    </div>
-  </section>
-
 <script>
 /* ====== KONFIG ====== */
 const DEFAULT_API_BASE = 'https://script.google.com/macros/s/AKfycbySOXro_Qk9bqD98mUBbJ3h1voYuD-EJ1QD8ZLpsi3cw8feXCUx-shoMYI0umx6vEnW/exec';
 const API_BASE = localStorage.getItem('apiUrl') || DEFAULT_API_BASE;
 
 /* ====== Hjälpare ====== */
-const TZ = 'Europe/Stockholm';
 const uid = () => Math.random().toString(36).slice(2,10);
 const el  = (sel) => document.querySelector(sel);
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
@@ -162,7 +117,7 @@ function colorForCategory(cat){ if(!cat) return 'var(--accent)'; if(CATEGORY_COL
 function showError(msg){ const box = el('#err'); box.textContent = msg; box.style.display = 'block'; }
 function clearError(){ const box = el('#err'); box.textContent = ''; box.style.display = 'none'; }
 
-/* ====== Tema-switch ====== */
+/* ====== Tema ====== */
 function initTheme(){
   const saved = localStorage.getItem('theme2') || 'dark';
   const root = document.documentElement;
@@ -180,7 +135,7 @@ function initTheme(){
   };
 }
 
-/* ====== Datumverktyg ====== */
+/* ====== Datum ====== */
 function dayOfYear(date){ const start = new Date(Date.UTC(date.getUTCFullYear(),0,1)); return Math.floor((date - start) / 86400000)+1; }
 function angleFor(date){
   const year = date.getUTCFullYear();
@@ -191,34 +146,29 @@ function angleFor(date){
   const frac = day / totalDays;
   return frac * Math.PI*2 - Math.PI/2;
 }
-function yearWindow(y){
-  return { start: new Date(Date.UTC(y,0,1)), end: new Date(Date.UTC(y,11,31,23,59,59)) };
-}
+function yearWindow(y){ return { start: new Date(Date.UTC(y,0,1)), end: new Date(Date.UTC(y,11,31,23,59,59)) }; }
 
-/* ====== Datahämtning (ALLT, filtreras klient-side) ====== */
+/* ====== Hämta alla events ====== */
 async function fetchEvents(){
   const base = localStorage.getItem('apiUrl') || API_BASE;
   const url = base + `?action=list`;
-  console.log('[Årshjul] GET', url);
   const res = await fetch(url, { headers:{ 'Accept':'application/json' }});
-  if(!res.ok) throw new Error('API fel ('+res.status+') – kontrollera Web App-URL och Access: Anyone.');
+  if(!res.ok) throw new Error('API fel ('+res.status+')');
   const text = await res.text();
-  try{ return JSON.parse(text); }catch(e){ throw new Error('Fick ej JSON från API:t. Svar: '+text.slice(0,200)+'…'); }
+  try{ return JSON.parse(text); }catch(e){ throw new Error('API-svar var inte JSON'); }
 }
 
-/* ====== Filtrera till valt år + bygg lanes ====== */
+/* ====== Filtrera till valt år + lanes ====== */
 function filterForYear(all, y){
   const {start, end} = yearWindow(y);
   const arr = all.map(ev=>{
     const s = new Date(ev.start_date+'T12:00:00Z');
     const e = ev.end_date ? new Date(ev.end_date+'T23:59:59Z') : new Date(ev.start_date+'T23:59:59Z');
-    if(e < start || s > end) return null; // ingen överlappning
+    if(e < start || s > end) return null;
     const segStart = new Date(Math.max(s, start));
     const segEnd   = new Date(Math.min(e, end));
     return {...ev, _segStart: segStart, _segEnd: segEnd};
   }).filter(Boolean);
-
-  // Lanes per kategori (koncentriska ringar)
   const cats = [...new Set(arr.map(e=>e.category||'Okategoriserat'))].sort();
   CATEGORY_LANES = Object.fromEntries(cats.map((c,i)=>[c,i]));
   return arr;
@@ -241,21 +191,19 @@ function buildLegend(events){
   }
 }
 
-/* ====== Rita årshjulet (banor per kategori) ====== */
+/* ====== Rita hjul (banor per kategori) ====== */
 function drawWheel(events){
   const stage=el('#stage'); stage.innerHTML='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','-240 -240 480 480');
 
-  const R=200, BASE_ARC=190, LANE_GAP=10; // varje kategori flyttas 10px inåt
+  const R=200, BASE_ARC=190, LANE_GAP=10;
 
-  // Ring
   const ring=document.createElementNS(svg.namespaceURI,'circle');
   ring.setAttribute('r',R); ring.setAttribute('fill','none');
   ring.setAttribute('stroke','var(--border)'); ring.setAttribute('stroke-width','2');
   svg.appendChild(ring);
 
-  // Månadstickar + labels
   for(let m=0;m<12;m++){
     const a=(m/12)*Math.PI*2 - Math.PI/2;
     const x1=Math.cos(a)*(R-20), y1=Math.sin(a)*(R-20);
@@ -280,7 +228,7 @@ function drawWheel(events){
   function hideTip(){ tip.style.display='none'; tip.setAttribute('aria-hidden','true'); }
 
   function arcBetween(s,e,r,color,tipHtml,id){
-    if(e.getTime() === s.getTime()){ // samma dag -> punkt
+    if(e.getTime() === s.getTime()){
       const a=angleFor(s);
       const dot=document.createElementNS(svg.namespaceURI,'circle');
       dot.setAttribute('cx',Math.cos(a)*r);
@@ -312,7 +260,6 @@ function drawWheel(events){
     svg.appendChild(path);
   }
 
-  // Rita händelser på respektive kategori-bana
   events.forEach(ev=>{
     const lane = CATEGORY_LANES[ev.category || 'Okategoriserat'] || 0;
     const radius = BASE_ARC - lane*LANE_GAP;
@@ -325,7 +272,7 @@ function drawWheel(events){
   stage.appendChild(svg);
 }
 
-/* ====== Sök/Kategori-filter → uppdatera hjul+legend+lista ====== */
+/* ====== Filterlogik ====== */
 function getFiltered(base = VIEW_EVENTS){
   const q = el('#search').value.toLowerCase();
   const c = el('#category').value;
@@ -338,12 +285,12 @@ function getFiltered(base = VIEW_EVENTS){
 }
 function updateFilteredUI(){
   const filtered = getFiltered(VIEW_EVENTS);
-  buildLegend(filtered);     // legend på filtrerat
-  drawWheel(filtered);       // hjul på filtrerat
-  renderList(VIEW_EVENTS);   // listan filtrerar internt, men behåller options från VIEW_EVENTS
+  buildLegend(filtered);
+  drawWheel(filtered);
+  renderList(VIEW_EVENTS);
 }
 
-/* ====== Listan + filter (inre filtrering men fyller options från events-param) ====== */
+/* ====== Lista ====== */
 function renderList(events){
   const q = el('#search').value.toLowerCase();
   const c = el('#category').value;
@@ -368,7 +315,7 @@ function renderList(events){
     list.appendChild(div);
   });
 
-  // Fyll kategori-dropdown efter VY-data (valt år)
+  // Kategori-options från VY-data
   const catSel = el('#category');
   const current = catSel.value;
   const cats = [...new Set(events.map(e=>e.category).filter(Boolean))].sort();
@@ -376,7 +323,7 @@ function renderList(events){
   if([...catSel.options].some(o=>o.value===current)) catSel.value = current;
 }
 
-/* ====== Init / Load ====== */
+/* ====== Init/Load ====== */
 async function loadAll(){
   clearError();
   ALL_EVENTS = await fetchEvents();
@@ -388,7 +335,7 @@ function recomputeView(){
     const y = parseInt(el('#year').value || String(new Date().getFullYear()), 10);
     CATEGORY_COLORS = {};
     VIEW_EVENTS = filterForYear(ALL_EVENTS, y);
-    updateFilteredUI(); // ritar hjul+legend på filtrerat och listan korrekt
+    updateFilteredUI();
   }catch(err){ showError(err.message); console.error(err); }
 }
 function populateYears(){
@@ -398,60 +345,17 @@ function populateYears(){
   yearSel.innerHTML=years.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
 }
 
-/* ====== Admin POST (utan preflight) ====== */
-async function adminPost(action,payload){
-  const base=el('#apiUrl').value.trim();
-  const key=el('#apiKey').value.trim();
-  if(!base||!key){alert('Fyll i API-URL + ADMIN_TOKEN');return;}
-  localStorage.setItem('apiUrl',base);
-  localStorage.setItem('apiKey',key);
-
-  console.log('[Årshjul] POST', base, {action, ...payload});
-  const body=new URLSearchParams({action,token:key,...payload});
-  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
-  const text=await res.text();
-  let j={}; try{ j=JSON.parse(text); }catch(e){ showError('POST svarade inte med JSON: '+text.slice(0,200)+'…'); return; }
-  if(!res.ok || j.error){ showError('Fel vid skrivning: '+(j.error || res.status)); return; }
-  await loadAll();
-  alert('Klart!');
-}
-
 /* ====== Start ====== */
 window.addEventListener('DOMContentLoaded',()=>{
   initTheme();
   populateYears();
 
-  el('#apiUrl').value = API_BASE;
-  el('#apiKey').value = localStorage.getItem('apiKey') || '';
-
-  el('#refresh').onclick = ()=> loadAll();        // hämta om från Google Sheets
+  el('#refresh').onclick = ()=> loadAll();
   el('#category').onchange = ()=> updateFilteredUI();
   el('#search').oninput = ()=> updateFilteredUI();
   el('#year').onchange = ()=> recomputeView();
-  el('#toggle-admin').onclick = ()=> el('#admin').classList.toggle('show');
 
-  el('#save').onclick = ()=>{
-    if(!el('#title').value || !el('#start').value){ alert('Titel och startdatum krävs'); return; }
-    adminPost('upsert',{
-      id:(el('#evId').value||'').trim()||uid(),
-      title:el('#title').value.trim(),
-      description:el('#desc').value.trim(),
-      start_date:el('#start').value,
-      end_date:el('#end').value||'',
-      category:el('#categoryInput').value.trim()||'',
-      color:el('#color').value||'',
-      link:el('#link').value.trim()||'',
-      location:el('#location').value.trim()||''
-    });
-  };
-
-  el('#del').onclick = ()=>{
-    const id=(el('#evId').value||'').trim();
-    if(!id){ alert('Ange id att radera'); return; }
-    if(confirm('Ta bort händelse?')) adminPost('delete',{id});
-  };
-
-  loadAll(); // hämta allt och rendera valt år
+  loadAll();
 });
 </script>
 </body>
