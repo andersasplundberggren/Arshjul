@@ -4,7 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Årshjul</title>
+  <!-- Inbäddad favicon för att undvika /favicon.ico 404 -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2372a3ff'/%3E%3C/svg%3E">
+
   <style>
+    /* ====== Teman via CSS-variabler ====== */
     :root{
       --bg:#0b1220; --fg:#e6eefc; --muted:#9fb0d3; --card:#101a33; --border:#1e2b4f;
       --accent:#72a3ff; --accent2:#ffcf70; --good:#5bd6a2; --bad:#ff7a7a;
@@ -23,21 +27,18 @@
 
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; transition:background .2s ease,border-color .2s ease}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    input, select, button, textarea{background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+    input, select, button, textarea{background:color-mix(in hsl, var(--card) 70%, black 10%); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+    :root.light input, :root.light select, :root.light button, :root.light textarea{ background:color-mix(in hsl, var(--card) 85%, white 10%); }
     button{cursor:pointer}
-    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card)}
+    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:color-mix(in hsl, var(--card) 80%, black 5%)}
 
     .stage{display:grid; place-items:center; min-height:520px;}
     svg{max-width:100%; height:auto}
 
     .list{display:flex; flex-direction:column; gap:10px; max-height:520px; overflow:auto;}
-    .item{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px}
+    .item{background:color-mix(in hsl, var(--card) 80%, black 5%); border:1px solid var(--border); border-radius:12px; padding:10px}
     .item h3{margin:0 0 6px; font-size:15px}
     .item small{color:var(--muted)}
-
-    .legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
-    .legend-item{display:flex; align-items:center; gap:6px; font-size:13px}
-    .legend-color{width:12px; height:12px; border-radius:3px;}
 
     .admin{display:none;}
     .admin.show{display:block}
@@ -46,9 +47,14 @@
     .mt{margin-top:12px}
     .right{margin-left:auto}
     .hint{color:var(--muted); font-size:12px}
+    .sp{height:8px}
     a{color:var(--accent)}
     .error{background:#2a0f14; border:1px solid #5a1b25; color:#ffd2d2; padding:10px; border-radius:10px; margin-top:10px; display:none}
-    .tooltip{position:absolute; background:var(--card); color:var(--fg); border:1px solid var(--border); padding:6px 8px; border-radius:6px; font-size:12px; pointer-events:none; opacity:0; transition:opacity .15s ease}
+
+    .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+    .legend .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px}
+    .legend .dot{width:10px; height:10px; border-radius:999px}
+    #tooltip{position:fixed; pointer-events:none; z-index:50; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:12px; box-shadow:0 6px 20px rgba(0,0,0,.25); display:none; max-width:260px}
   </style>
 </head>
 <body>
@@ -64,16 +70,19 @@
     <button id="toggle-admin" style="margin-left:8px">Admin</button>
   </header>
 
+  <div id="tooltip" aria-hidden="true"></div>
+
   <div class="wrap">
     <section class="card">
       <div class="row">
         <input id="search" placeholder="Sök titel/beskrivning…" />
-        <select id="category"><option value="">Alla kategorier</option></select>
+        <select id="category">
+          <option value="">Alla kategorier</option>
+        </select>
         <select id="year"></select>
         <button id="refresh">Uppdatera</button>
       </div>
       <div class="stage" id="stage"></div>
-      <div class="legend" id="legend"></div>
       <div class="legend" id="legend"></div>
       <div class="error" id="err"></div>
     </section>
@@ -85,14 +94,14 @@
   </div>
 
   <section class="card admin" id="admin">
-    <h2>Adminpanel</h2>
-    <div class="hint">Fyll i API-nyckel (ADMIN_TOKEN). URL är redan satt.</div>
+    <h2 style="margin:0 0 8px">Adminpanel</h2>
+    <div class="hint">Klistra in Web App-URL & din ADMIN_TOKEN. POST går som form-data (ingen CORS-preflight).</div>
     <div class="grid2 mt">
-      <input id="apiUrl" />
+      <input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" />
       <input id="apiKey" placeholder="ADMIN_TOKEN" />
     </div>
 
-    <h3>Lägg till / uppdatera händelse</h3>
+    <h3 style="margin:14px 0 6px">Lägg till / uppdatera händelse</h3>
     <div class="grid3">
       <input id="evId" placeholder="id (tomt = nytt)" />
       <input id="title" placeholder="Titel" />
@@ -110,68 +119,111 @@
     <textarea id="desc" class="mt" rows="3" placeholder="Beskrivning"></textarea>
     <div class="row mt">
       <button id="save">Spara</button>
-      <button id="del">Ta bort</button>
+      <button id="del" style="background:#2a0f14; border-color:#5a1b25">Ta bort</button>
     </div>
   </section>
 
-  <div id="tooltip" class="tooltip"></div>
-
 <script>
+/* ====== KONFIG ====== */
 const DEFAULT_API_BASE = 'https://script.google.com/macros/s/AKfycbySOXro_Qk9bqD98mUBbJ3h1voYuD-EJ1QD8ZLpsi3cw8feXCUx-shoMYI0umx6vEnW/exec';
 const API_BASE = localStorage.getItem('apiUrl') || DEFAULT_API_BASE;
 
-const el = (sel)=>document.querySelector(sel);
+/* ====== Hjälpare ====== */
+const TZ = 'Europe/Stockholm';
+const uid = () => Math.random().toString(36).slice(2,10);
+const el  = (sel) => document.querySelector(sel);
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-const tooltip = el('#tooltip');
 
-function showError(msg){ el('#err').textContent=msg; el('#err').style.display='block'; }
-function clearError(){ el('#err').style.display='none'; }
+let CATEGORY_COLORS = {};
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i); h|=0; } return Math.abs(h); }
+function colorForCategory(cat){ if(!cat) return 'var(--accent)'; if(CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat]; const h=hashStr(cat)%360; const clr=`hsl(${h} 70% 55%)`; CATEGORY_COLORS[cat]=clr; return clr; }
 
-// ===== Tema =====
+function showError(msg){ const box = el('#err'); box.textContent = msg; box.style.display = 'block'; }
+function clearError(){ const box = el('#err'); box.textContent = ''; box.style.display = 'none'; }
+
+/* ====== Tema-switch ====== */
 function initTheme(){
-  const saved = localStorage.getItem('theme2')||'dark';
+  const saved = localStorage.getItem('theme2') || 'dark';
+  const root = document.documentElement;
+  const sw = el('#themeSwitch');
+  const lbl = el('#themeLabel');
   const isLight = saved==='light';
-  document.documentElement.classList.toggle('light', isLight);
-  el('#themeSwitch').checked=isLight;
-  el('#themeLabel').textContent=isLight?'Ljust läge':'Mörkt läge';
-  el('#themeSwitch').onchange=()=>{
-    const on=el('#themeSwitch').checked;
-    document.documentElement.classList.toggle('light',on);
-    localStorage.setItem('theme2', on?'light':'dark');
-    el('#themeLabel').textContent=on?'Ljust läge':'Mörkt läge';
+  root.classList.toggle('light', isLight);
+  sw.checked = isLight;
+  lbl.textContent = isLight ? 'Ljust läge' : 'Mörkt läge';
+  sw.onchange = ()=>{
+    const on = sw.checked;
+    root.classList.toggle('light', on);
+    localStorage.setItem('theme2', on ? 'light' : 'dark');
+    lbl.textContent = on ? 'Ljust läge' : 'Mörkt läge';
   };
 }
 
-async function fetchEvents(year){
-  const url = API_BASE+`?action=list${year?`&year=${year}`:''}`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('API-fel '+res.status);
-  return res.json();
+/* ====== Datum → vinkel ====== */
+function dayOfYear(date){
+  const start = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.floor((date - start) / 86400000)+1;
 }
-
 function angleFor(date){
-  const year=date.getUTCFullYear();
-  const start=new Date(Date.UTC(year,0,1));
-  const end=new Date(Date.UTC(year+1,0,1));
-  const total=(end-start)/86400000;
-  const day=Math.floor((date-start)/86400000)+1;
-  return (day/total)*Math.PI*2-Math.PI/2;
+  const year = date.getUTCFullYear();
+  const start = new Date(Date.UTC(year,0,1));
+  const end   = new Date(Date.UTC(year+1,0,1));
+  const totalDays = (end - start)/86400000;
+  const day = dayOfYear(date);
+  const frac = day/totalDays;
+  return frac * Math.PI*2 - Math.PI/2;
 }
 
+/* ====== Datahämtning ====== */
+async function fetchEvents(yearFilter){
+  const base = localStorage.getItem('apiUrl') || API_BASE;
+  const url = base + `?action=list` + (yearFilter?`&year=${yearFilter}`:'');
+  console.log('[Årshjul] GET', url);  // syns i konsolen
+  const res = await fetch(url, { headers:{ 'Accept':'application/json' }});
+  if(!res.ok){
+    throw new Error('API fel ('+res.status+') – kontrollera Web App-URL och åtkomst (Anyone).');
+  }
+  // Om servern av misstag svarar med HTML (t.ex. inloggningssida) → försök parsa JSON annars visa fel
+  const text = await res.text();
+  try{ return JSON.parse(text); } catch(e){ throw new Error('Fick ej JSON från API:t. Svar: ' + text.slice(0,200)+'…'); }
+}
+
+/* ====== Legend ====== */
+function buildLegend(events){
+  const wrap = el('#legend'); wrap.innerHTML='';
+  const cats = new Map();
+  events.forEach(e=>{
+    const k = e.category || 'Okategoriserat';
+    const col = e.color || colorForCategory(e.category);
+    if(!cats.has(k)) cats.set(k, col);
+  });
+  for(const [cat,col] of cats.entries()){
+    const chip=document.createElement('span');
+    chip.className='chip';
+    chip.innerHTML=`<span class="dot" style="background:${col}"></span>${cat}`;
+    wrap.appendChild(chip);
+  }
+}
+
+/* ====== Rita årshjulet ====== */
 function drawWheel(events){
   const stage=el('#stage'); stage.innerHTML='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','-240 -240 480 480');
 
+  const R=200, R_ARC=190, R_DOT=6;
+
+  // Ring
   const ring=document.createElementNS(svg.namespaceURI,'circle');
-  ring.setAttribute('r','200'); ring.setAttribute('fill','none');
+  ring.setAttribute('r',R); ring.setAttribute('fill','none');
   ring.setAttribute('stroke','var(--border)'); ring.setAttribute('stroke-width','2');
   svg.appendChild(ring);
 
+  // Månadstickar + labels
   for(let m=0;m<12;m++){
-    const a=(m/12)*Math.PI*2-Math.PI/2;
-    const x1=Math.cos(a)*180,y1=Math.sin(a)*180;
-    const x2=Math.cos(a)*200,y2=Math.sin(a)*200;
+    const a=(m/12)*Math.PI*2 - Math.PI/2;
+    const x1=Math.cos(a)*(R-20), y1=Math.sin(a)*(R-20);
+    const x2=Math.cos(a)*R, y2=Math.sin(a)*R;
     const line=document.createElementNS(svg.namespaceURI,'line');
     line.setAttribute('x1',x1); line.setAttribute('y1',y1);
     line.setAttribute('x2',x2); line.setAttribute('y2',y2);
@@ -179,102 +231,185 @@ function drawWheel(events){
     svg.appendChild(line);
 
     const lbl=document.createElementNS(svg.namespaceURI,'text');
-    lbl.setAttribute('x',Math.cos(a)*155); lbl.setAttribute('y',Math.sin(a)*155);
+    lbl.setAttribute('x',Math.cos(a)*(R-45));
+    lbl.setAttribute('y',Math.sin(a)*(R-45));
     lbl.setAttribute('text-anchor','middle');
     lbl.setAttribute('fill','var(--muted)');
     lbl.textContent=MONTHS[m];
     svg.appendChild(lbl);
   }
 
-  function arcBetween(s,e,color,ev){
-    const a1=angleFor(s),a2=angleFor(e);
+  const tip = el('#tooltip');
+  function showTip(evt, html){
+    tip.innerHTML = html;
+    tip.style.display='block';
+    const pad=12; tip.style.left=(evt.clientX+pad)+'px'; tip.style.top=(evt.clientY+pad)+'px';
+    tip.setAttribute('aria-hidden','false');
+  }
+  function hideTip(){ tip.style.display='none'; tip.setAttribute('aria-hidden','true'); }
+
+  function arcBetween(s,e,color,tipHtml,id){
+    const a1=angleFor(s), a2=angleFor(e);
     const delta=(a2-a1+Math.PI*2)%(Math.PI*2);
     const largeArc=delta>Math.PI?1:0;
-    const x1=Math.cos(a1)*190,y1=Math.sin(a1)*190;
-    const x2=Math.cos(a2)*190,y2=Math.sin(a2)*190;
+    const x1=Math.cos(a1)*R_ARC, y1=Math.sin(a1)*R_ARC;
+    const x2=Math.cos(a2)*R_ARC, y2=Math.sin(a2)*R_ARC;
     const path=document.createElementNS(svg.namespaceURI,'path');
-    path.setAttribute('d',`M ${x1} ${y1} A 190 190 0 ${largeArc} 1 ${x2} ${y2}`);
+    path.setAttribute('d',`M ${x1} ${y1} A ${R_ARC} ${R_ARC} 0 ${largeArc} 1 ${x2} ${y2}`);
     path.setAttribute('stroke',color); path.setAttribute('fill','none');
-    path.setAttribute('stroke-width','6'); path.setAttribute('stroke-linecap','round');
-    path.addEventListener('mousemove',(e)=>showTooltip(e,ev));
-    path.addEventListener('mouseleave',hideTooltip);
+    path.setAttribute('stroke-width','6'); path.setAttribute('stroke-linecap','round'); path.setAttribute('opacity','0.9');
+    path.addEventListener('mouseenter',e=>showTip(e,tipHtml));
+    path.addEventListener('mousemove',e=>showTip(e,tipHtml));
+    path.addEventListener('mouseleave',hideTip);
+    path.style.cursor='pointer';
+    path.addEventListener('click',()=>{ const target=document.getElementById('item-'+(id||'')); if(target){ target.scrollIntoView({behavior:'smooth',block:'center'});} });
     svg.appendChild(path);
   }
 
   events.forEach(ev=>{
-    const color=ev.color||'var(--accent)';
-    const sd=new Date(ev.start_date+'T12:00:00Z');
-    const ed=ev.end_date?new Date(ev.end_date+'T12:00:00Z'):null;
-    if(ed) arcBetween(sd,ed,color,ev); else {
+    const color = ev.color || colorForCategory(ev.category);
+    const sd = new Date(ev.start_date+'T12:00:00Z');
+    const ed = ev.end_date ? new Date(ev.end_date+'T12:00:00Z') : null;
+    const tipHtml = `<strong>${ev.title||''}</strong><br>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}`;
+
+    if(ed){
+      // rita båge (obs: om slut < start antar vi wrap → rita del i detta år)
+      if(ed < sd){
+        const y=sd.getUTCFullYear();
+        arcBetween(sd, new Date(Date.UTC(y,11,31)), color, tipHtml, ev.id);
+      }else{
+        arcBetween(sd, ed, color, tipHtml, ev.id);
+      }
+    }else{
+      // prick
       const a=angleFor(sd);
       const dot=document.createElementNS(svg.namespaceURI,'circle');
-      dot.setAttribute('cx',Math.cos(a)*190); dot.setAttribute('cy',Math.sin(a)*190);
-      dot.setAttribute('r','6'); dot.setAttribute('fill',color);
-      dot.addEventListener('mousemove',(e)=>showTooltip(e,ev));
-      dot.addEventListener('mouseleave',hideTooltip);
+      dot.setAttribute('cx',Math.cos(a)*R_ARC);
+      dot.setAttribute('cy',Math.sin(a)*R_ARC);
+      dot.setAttribute('r',R_DOT);
+      dot.setAttribute('fill',color);
+      dot.addEventListener('mouseenter',e=>showTip(e,tipHtml));
+      dot.addEventListener('mousemove',e=>showTip(e,tipHtml));
+      dot.addEventListener('mouseleave',hideTip);
+      dot.style.cursor='pointer';
+      dot.addEventListener('click',()=>{ const target=document.getElementById('item-'+(ev.id||'')); if(target){ target.scrollIntoView({behavior:'smooth',block:'center'});} });
       svg.appendChild(dot);
     }
   });
 
   stage.appendChild(svg);
-  renderLegend(events);
 }
 
-function renderLegend(events){
-  const legend=el('#legend'); legend.innerHTML='';
-  const cats=[...new Map(events.filter(e=>e.category).map(e=>[e.category,e.color||'var(--accent)'])).entries()];
-  cats.forEach(([cat,color])=>{
-    const div=document.createElement('div'); div.className='legend-item';
-    div.innerHTML=`<span class="legend-color" style="background:${color}"></span>${cat}`;
-    legend.appendChild(div);
-  });
-}
-
-function showTooltip(evt,ev){
-  tooltip.innerHTML=`<strong>${ev.title}</strong><br>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}`;
-  tooltip.style.left=(evt.pageX+10)+'px';
-  tooltip.style.top=(evt.pageY+10)+'px';
-  tooltip.style.opacity=1;
-}
-function hideTooltip(){ tooltip.style.opacity=0; }
-
+/* ====== Listan + filter ====== */
 function renderList(events){
-  const q=el('#search').value.toLowerCase();
-  const c=el('#category').value;
-  const list=el('#list'); list.innerHTML='';
-  events.filter(ev=>(!q||ev.title.toLowerCase().includes(q))&&(!c||ev.category===c))
-    .sort((a,b)=>a.start_date.localeCompare(b.start_date))
-    .forEach(ev=>{
-      const div=document.createElement('div'); div.className='item';
-      div.innerHTML=`<h3>${ev.title}</h3><small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}</small><p>${ev.description||''}</p>`;
-      list.appendChild(div);
-    });
+  const q = el('#search').value.toLowerCase();
+  const c = el('#category').value;
+  const list = el('#list'); list.innerHTML='';
+
+  const filtered = events.filter(ev=>{
+    const hay = `${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
+    return (!q || hay.includes(q)) && (!c || ev.category===c);
+  }).sort((a,b)=>a.start_date.localeCompare(b.start_date));
+
+  filtered.forEach(ev=>{
+    const color = ev.color || colorForCategory(ev.category);
+    const div = document.createElement('div');
+    div.className='item'; div.id='item-'+(ev.id||'');
+    div.innerHTML = `
+      <h3><span style="display:inline-block;width:10px;height:10px;background:${color};border-radius:999px;margin-right:8px"></span>${ev.title}</h3>
+      <small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}${ev.location?` • ${ev.location}`:''}</small>
+      <div class="sp"></div>
+      <p style="margin:0 0 8px">${ev.description||''}</p>
+      ${ev.link?`<a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a>`:''}
+    `;
+    list.appendChild(div);
+  });
+
+  const catSel = el('#category');
+  const current = catSel.value;
+  const cats = [...new Set(events.map(e=>e.category).filter(Boolean))].sort();
+  catSel.innerHTML = '<option value="">Alla kategorier</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if([...catSel.options].some(o=>o.value===current)) catSel.value = current;
 }
 
-async function load(y){ try{clearError(); const d=await fetchEvents(y); drawWheel(d); renderList(d);}catch(e){showError(e.message);} }
-function populateYears(){ const y=new Date().getFullYear(); el('#year').innerHTML=[y-1,y,y+1].map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join(''); }
+/* ====== Init/Load ====== */
+async function load(year){
+  try{
+    clearError();
+    const data = await fetchEvents(year);
+    CATEGORY_COLORS = {}; // per-laddning
+    buildLegend(data);
+    drawWheel(data);
+    renderList(data);
+    window.ALL_EVENTS = data;
+  }catch(err){
+    showError(err.message);
+    console.error('[Årshjul] Fetch error:', err);
+  }
+}
 
+function populateYears(){
+  const yearSel = el('#year');
+  const y=new Date().getFullYear();
+  const years=[y-1,y,y+1,y+2];
+  yearSel.innerHTML=years.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
+}
+
+/* ====== Admin POST (utan preflight) ====== */
 async function adminPost(action,payload){
   const base=el('#apiUrl').value.trim();
   const key=el('#apiKey').value.trim();
-  if(!base||!key){alert('Fyll i API-URL + nyckel');return;}
-  localStorage.setItem('apiUrl',base); localStorage.setItem('apiKey',key);
+  if(!base||!key){alert('Fyll i API-URL + ADMIN_TOKEN');return;}
+  localStorage.setItem('apiUrl',base);
+  localStorage.setItem('apiKey',key);
+
+  console.log('[Årshjul] POST', base, {action, ...payload});
   const body=new URLSearchParams({action,token:key,...payload});
-  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-  const j=await res.json(); if(j.error){alert('Fel: '+j.error);return;}
-  await load(el('#year').value); alert('Klart!');
+  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
+  const text=await res.text();
+  let j={};
+  try{ j=JSON.parse(text); }catch(e){ showError('POST svarade inte med JSON: '+text.slice(0,200)+'…'); return; }
+  if(!res.ok || j.error){ showError('Fel vid skrivning: '+(j.error || res.status)); return; }
+  await load(el('#year').value);
+  alert('Klart!');
 }
 
+/* ====== Start ====== */
 window.addEventListener('DOMContentLoaded',()=>{
-  initTheme(); populateYears();
-  el('#apiUrl').value=API_BASE; el('#apiKey').value=localStorage.getItem('apiKey')||'';
-  el('#refresh').onclick=()=>load(el('#year').value);
-  el('#toggle-admin').onclick=()=>el('#admin').classList.toggle('show');
-  el('#save').onclick=()=>{
-    if(!el('#title').value||!el('#start').value){alert('Titel och startdatum krävs');return;}
+  initTheme();
+  populateYears();
+  el('#apiUrl').value = API_BASE;
+  el('#apiKey').value = localStorage.getItem('apiKey') || '';
+
+  el('#refresh').onclick = ()=> load(el('#year').value);
+  el('#category').onchange = ()=> renderList(window.ALL_EVENTS||[]);
+  el('#search').oninput = ()=> renderList(window.ALL_EVENTS||[]);
+  el('#year').onchange = ()=> load(el('#year').value);
+  el('#toggle-admin').onclick = ()=> el('#admin').classList.toggle('show');
+
+  el('#save').onclick = ()=>{
+    if(!el('#title').value || !el('#start').value){ alert('Titel och startdatum krävs'); return; }
     adminPost('upsert',{
-      id:(el('#evId').value||'').trim()||Math.random().toString(36).slice(2,10),
-      title:el('#title').value.trim(), description:el('#desc').value.trim(),
-      start_date:el('#start').value, end_date:el('#end').value||'',
-      category:el('#categoryInput').value.trim()||'', color:el('#color').value||'',
-      link:el('#link').value.trim()||'', location:el('#location').value.trim()||''
+      id:(el('#evId').value||'').trim()||uid(),
+      title:el('#title').value.trim(),
+      description:el('#desc').value.trim(),
+      start_date:el('#start').value,
+      end_date:el('#end').value||'',
+      category:el('#categoryInput').value.trim()||'',
+      color:el('#color').value||'',
+      link:el('#link').value.trim()||'',
+      location:el('#location').value.trim()||''
+    });
+  };
+
+  el('#del').onclick = ()=>{
+    const id=(el('#evId').value||'').trim();
+    if(!id){ alert('Ange id att radera'); return; }
+    if(confirm('Ta bort händelse?')) adminPost('delete',{id});
+  };
+
+  load(new Date().getFullYear());
+});
+</script>
+</body>
+</html>
