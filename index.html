@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Årshjul</title>
   <style>
-    /* ====== Teman via CSS-variabler ====== */
     :root{
       --bg:#0b1220; --fg:#e6eefc; --muted:#9fb0d3; --card:#101a33; --border:#1e2b4f;
       --accent:#72a3ff; --accent2:#ffcf70; --good:#5bd6a2; --bad:#ff7a7a;
     }
-    /* Ljust tema */
     :root.light{
       --bg:#ffffff; --fg:#0b1220; --muted:#52607a; --card:#ffffff; --border:#e5e7eb;
       --accent:#2b59ff; --accent2:#b45309; --good:#059669; --bad:#dc2626;
@@ -25,21 +23,21 @@
 
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; transition:background .2s ease,border-color .2s ease}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    input, select, button, textarea{background:color-mix(in hsl, var(--card) 70%, black 10%); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
-    :root.light input, :root.light select, :root.light button, :root.light textarea{ background:color-mix(in hsl, var(--card) 85%, white 10%); }
+    input, select, button, textarea{background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
     button{cursor:pointer}
-    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:color-mix(in hsl, var(--card) 80%, black 5%)}
+    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card)}
 
-    /* Year wheel */
     .stage{display:grid; place-items:center; min-height:520px;}
     svg{max-width:100%; height:auto}
-    .legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
 
-    /* List */
     .list{display:flex; flex-direction:column; gap:10px; max-height:520px; overflow:auto;}
-    .item{background:color-mix(in hsl, var(--card) 80%, black 5%); border:1px solid var(--border); border-radius:12px; padding:10px}
+    .item{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px}
     .item h3{margin:0 0 6px; font-size:15px}
     .item small{color:var(--muted)}
+
+    .legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+    .legend-item{display:flex; align-items:center; gap:6px; font-size:13px}
+    .legend-color{width:12px; height:12px; border-radius:3px;}
 
     .admin{display:none;}
     .admin.show{display:block}
@@ -48,9 +46,9 @@
     .mt{margin-top:12px}
     .right{margin-left:auto}
     .hint{color:var(--muted); font-size:12px}
-    .sp{height:8px}
     a{color:var(--accent)}
     .error{background:#2a0f14; border:1px solid #5a1b25; color:#ffd2d2; padding:10px; border-radius:10px; margin-top:10px; display:none}
+    .tooltip{position:absolute; background:var(--card); color:var(--fg); border:1px solid var(--border); padding:6px 8px; border-radius:6px; font-size:12px; pointer-events:none; opacity:0; transition:opacity .15s ease}
   </style>
 </head>
 <body>
@@ -59,9 +57,8 @@
     <span class="pill">Datakälla: Google Sheet</span>
     <span class="pill">TZ: Europe/Stockholm</span>
     <div class="right"></div>
-    <!-- Tema-switch -->
-    <label class="pill" style="gap:8px; cursor:pointer">
-      <input id="themeSwitch" type="checkbox" style="accent-color:var(--accent)" />
+    <label class="pill" style="gap:6px; cursor:pointer">
+      <input id="themeSwitch" type="checkbox" />
       <span id="themeLabel">Mörkt läge</span>
     </label>
     <button id="toggle-admin" style="margin-left:8px">Admin</button>
@@ -71,13 +68,12 @@
     <section class="card">
       <div class="row">
         <input id="search" placeholder="Sök titel/beskrivning…" />
-        <select id="category">
-          <option value="">Alla kategorier</option>
-        </select>
+        <select id="category"><option value="">Alla kategorier</option></select>
         <select id="year"></select>
         <button id="refresh">Uppdatera</button>
       </div>
       <div class="stage" id="stage"></div>
+      <div class="legend" id="legend"></div>
       <div class="legend" id="legend"></div>
       <div class="error" id="err"></div>
     </section>
@@ -89,14 +85,14 @@
   </div>
 
   <section class="card admin" id="admin">
-    <h2 style="margin:0 0 8px">Adminpanel</h2>
-    <div class="hint">Fyll i din API-nyckel (ADMIN_TOKEN). URL är redan satt till din Web App.</div>
+    <h2>Adminpanel</h2>
+    <div class="hint">Fyll i API-nyckel (ADMIN_TOKEN). URL är redan satt.</div>
     <div class="grid2 mt">
       <input id="apiUrl" />
       <input id="apiKey" placeholder="ADMIN_TOKEN" />
     </div>
 
-    <h3 style="margin:14px 0 6px">Lägg till / uppdatera händelse</h3>
+    <h3>Lägg till / uppdatera händelse</h3>
     <div class="grid3">
       <input id="evId" placeholder="id (tomt = nytt)" />
       <input id="title" placeholder="Titel" />
@@ -114,262 +110,171 @@
     <textarea id="desc" class="mt" rows="3" placeholder="Beskrivning"></textarea>
     <div class="row mt">
       <button id="save">Spara</button>
-      <button id="del" style="background:#2a0f14; border-color:#5a1b25">Ta bort</button>
+      <button id="del">Ta bort</button>
     </div>
   </section>
 
+  <div id="tooltip" class="tooltip"></div>
+
 <script>
-/* ====== KONFIG ====== */
 const DEFAULT_API_BASE = 'https://script.google.com/macros/s/AKfycbySOXro_Qk9bqD98mUBbJ3h1voYuD-EJ1QD8ZLpsi3cw8feXCUx-shoMYI0umx6vEnW/exec';
 const API_BASE = localStorage.getItem('apiUrl') || DEFAULT_API_BASE;
 
-/* ====== Hjälpare ====== */
-const TZ = 'Europe/Stockholm';
-const uid = () => Math.random().toString(36).slice(2,10);
-const el  = (sel) => document.querySelector(sel);
-const ELLIPSE_RX = 180, ELLIPSE_RY = 180;
+const el = (sel)=>document.querySelector(sel);
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+const tooltip = el('#tooltip');
 
-function showError(msg){ const box = el('#err'); box.textContent = msg; box.style.display = 'block'; }
-function clearError(){ const box = el('#err'); box.textContent = ''; box.style.display = 'none'; }
+function showError(msg){ el('#err').textContent=msg; el('#err').style.display='block'; }
+function clearError(){ el('#err').style.display='none'; }
 
-/* ====== Tema-switch ====== */
+// ===== Tema =====
 function initTheme(){
-  const saved = localStorage.getItem('theme2') || 'dark';
-  const root = document.documentElement;
-  const sw = el('#themeSwitch');
-  const lbl = el('#themeLabel');
+  const saved = localStorage.getItem('theme2')||'dark';
   const isLight = saved==='light';
-  root.classList.toggle('light', isLight);
-  sw.checked = isLight;
-  lbl.textContent = isLight ? 'Ljust läge' : 'Mörkt läge';
-  sw.onchange = ()=>{
-    const on = sw.checked;
-    root.classList.toggle('light', on);
-    localStorage.setItem('theme2', on ? 'light' : 'dark');
-    lbl.textContent = on ? 'Ljust läge' : 'Mörkt läge';
+  document.documentElement.classList.toggle('light', isLight);
+  el('#themeSwitch').checked=isLight;
+  el('#themeLabel').textContent=isLight?'Ljust läge':'Mörkt läge';
+  el('#themeSwitch').onchange=()=>{
+    const on=el('#themeSwitch').checked;
+    document.documentElement.classList.toggle('light',on);
+    localStorage.setItem('theme2', on?'light':'dark');
+    el('#themeLabel').textContent=on?'Ljust läge':'Mörkt läge';
   };
 }
 
-/* ====== Datum → position/vinkel ====== */
-function dayOfYear(date){
-  const start = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-  return Math.floor((date - start) / 86400000)+1;
-}
-function angleFor(date){
-  const year = date.getUTCFullYear();
-  const start = new Date(Date.UTC(year,0,1));
-  const end   = new Date(Date.UTC(year+1,0,1));
-  const totalDays = (end - start)/86400000;
-  const day = dayOfYear(date);
-  const frac = day/totalDays;
-  return frac * Math.PI*2 - Math.PI/2; // 0 rad = kl 3, vi börjar uppe
-}
-
-/* ====== Datahämtning ====== */
-async function fetchEvents(yearFilter){
-  const base = localStorage.getItem('apiUrl') || API_BASE;
-  const url = base + `?action=list` + (yearFilter?`&year=${yearFilter}`:'');
-  const res = await fetch(url, { headers:{ 'Accept':'application/json' }});
-  if(!res.ok) throw new Error('API fel ('+res.status+')');
+async function fetchEvents(year){
+  const url = API_BASE+`?action=list${year?`&year=${year}`:''}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('API-fel '+res.status);
   return res.json();
 }
 
-/* ====== Rita årshjul (prick + periodbåge) ====== */
+function angleFor(date){
+  const year=date.getUTCFullYear();
+  const start=new Date(Date.UTC(year,0,1));
+  const end=new Date(Date.UTC(year+1,0,1));
+  const total=(end-start)/86400000;
+  const day=Math.floor((date-start)/86400000)+1;
+  return (day/total)*Math.PI*2-Math.PI/2;
+}
+
 function drawWheel(events){
-  const stage = el('#stage');
-  stage.innerHTML = '';
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS,'svg');
+  const stage=el('#stage'); stage.innerHTML='';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','-240 -240 480 480');
 
-  const R_DOT = 6, R_ARC = 190;
-
-  // Bakgrundsring
-  const ring = document.createElementNS(svgNS,'circle');
+  const ring=document.createElementNS(svg.namespaceURI,'circle');
   ring.setAttribute('r','200'); ring.setAttribute('fill','none');
   ring.setAttribute('stroke','var(--border)'); ring.setAttribute('stroke-width','2');
   svg.appendChild(ring);
 
-  // Månadstickar & etiketter
   for(let m=0;m<12;m++){
-    const a = (m/12)*Math.PI*2 - Math.PI/2;
-    const x1 = Math.cos(a)*180, y1=Math.sin(a)*180;
-    const x2 = Math.cos(a)*200, y2=Math.sin(a)*200;
-    const line = document.createElementNS(svgNS,'line');
+    const a=(m/12)*Math.PI*2-Math.PI/2;
+    const x1=Math.cos(a)*180,y1=Math.sin(a)*180;
+    const x2=Math.cos(a)*200,y2=Math.sin(a)*200;
+    const line=document.createElementNS(svg.namespaceURI,'line');
     line.setAttribute('x1',x1); line.setAttribute('y1',y1);
     line.setAttribute('x2',x2); line.setAttribute('y2',y2);
     line.setAttribute('stroke','var(--border)');
     svg.appendChild(line);
 
-    const lx = Math.cos(a)*155, ly=Math.sin(a)*155;
-    const lbl = document.createElementNS(svgNS,'text');
-    lbl.setAttribute('x',lx); lbl.setAttribute('y',ly);
+    const lbl=document.createElementNS(svg.namespaceURI,'text');
+    lbl.setAttribute('x',Math.cos(a)*155); lbl.setAttribute('y',Math.sin(a)*155);
     lbl.setAttribute('text-anchor','middle');
     lbl.setAttribute('fill','var(--muted)');
-    lbl.textContent = MONTHS[m];
+    lbl.textContent=MONTHS[m];
     svg.appendChild(lbl);
   }
 
-  function arcBetween(s,e,color){
-    const a1 = angleFor(s);
-    const a2 = angleFor(e);
-    const delta = (a2 - a1 + Math.PI*2) % (Math.PI*2);
-    const largeArc = delta > Math.PI ? 1 : 0;
-    const sweep = 1;
-    const x1 = Math.cos(a1)*R_ARC, y1 = Math.sin(a1)*R_ARC;
-    const x2 = Math.cos(a2)*R_ARC, y2 = Math.sin(a2)*R_ARC;
-    const path = document.createElementNS(svgNS,'path');
-    const d = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${R_ARC} ${R_ARC} 0 ${largeArc} ${sweep} ${x2.toFixed(2)} ${y2.toFixed(2)}`;
-    path.setAttribute('d', d);
-    path.setAttribute('fill','none');
-    path.setAttribute('stroke', color);
-    path.setAttribute('stroke-width','6');
-    path.setAttribute('stroke-linecap','round');
-    path.setAttribute('opacity','0.85');
+  function arcBetween(s,e,color,ev){
+    const a1=angleFor(s),a2=angleFor(e);
+    const delta=(a2-a1+Math.PI*2)%(Math.PI*2);
+    const largeArc=delta>Math.PI?1:0;
+    const x1=Math.cos(a1)*190,y1=Math.sin(a1)*190;
+    const x2=Math.cos(a2)*190,y2=Math.sin(a2)*190;
+    const path=document.createElementNS(svg.namespaceURI,'path');
+    path.setAttribute('d',`M ${x1} ${y1} A 190 190 0 ${largeArc} 1 ${x2} ${y2}`);
+    path.setAttribute('stroke',color); path.setAttribute('fill','none');
+    path.setAttribute('stroke-width','6'); path.setAttribute('stroke-linecap','round');
+    path.addEventListener('mousemove',(e)=>showTooltip(e,ev));
+    path.addEventListener('mouseleave',hideTooltip);
     svg.appendChild(path);
   }
 
-  function drawArc(startDate,endDate,color){
-    const y = startDate.getUTCFullYear();
-    const clampStart = new Date(Date.UTC(y,0,1));
-    const clampEnd   = new Date(Date.UTC(y+1,0,1) - 1);
-
-    if(!endDate || isNaN(endDate.getTime())){
-      const a = angleFor(startDate);
-      const dot = document.createElementNS(svgNS,'circle');
-      dot.setAttribute('cx', Math.cos(a)*R_ARC);
-      dot.setAttribute('cy', Math.sin(a)*R_ARC);
-      dot.setAttribute('r', R_DOT);
-      dot.setAttribute('fill', color);
-      svg.appendChild(dot);
-      return;
-    }
-
-    if(endDate < startDate){
-      // wrap: rita del i detta år (start → 31/12)
-      arcBetween(startDate, new Date(Date.UTC(y,11,31)), color);
-      return;
-    }
-
-    const s = new Date(Math.max(startDate, clampStart));
-    const e = new Date(Math.min(endDate, clampEnd));
-    arcBetween(s,e,color);
-  }
-
-  // Rita events
   events.forEach(ev=>{
-    const color = ev.color || 'var(--accent)';
-    const sd = new Date(ev.start_date+'T12:00:00Z');
-    const ed = ev.end_date ? new Date(ev.end_date+'T12:00:00Z') : null;
-    drawArc(sd, ed, color);
+    const color=ev.color||'var(--accent)';
+    const sd=new Date(ev.start_date+'T12:00:00Z');
+    const ed=ev.end_date?new Date(ev.end_date+'T12:00:00Z'):null;
+    if(ed) arcBetween(sd,ed,color,ev); else {
+      const a=angleFor(sd);
+      const dot=document.createElementNS(svg.namespaceURI,'circle');
+      dot.setAttribute('cx',Math.cos(a)*190); dot.setAttribute('cy',Math.sin(a)*190);
+      dot.setAttribute('r','6'); dot.setAttribute('fill',color);
+      dot.addEventListener('mousemove',(e)=>showTooltip(e,ev));
+      dot.addEventListener('mouseleave',hideTooltip);
+      svg.appendChild(dot);
+    }
   });
 
   stage.appendChild(svg);
+  renderLegend(events);
 }
 
-/* ====== Listan + filter ====== */
-function renderList(events){
-  const q = el('#search').value.toLowerCase();
-  const c = el('#category').value;
-  const list = el('#list'); list.innerHTML='';
-
-  const filtered = events.filter(ev=>{
-    const hay = `${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
-    return (!q || hay.includes(q)) && (!c || ev.category===c);
-  }).sort((a,b)=>a.start_date.localeCompare(b.start_date));
-
-  filtered.forEach(ev=>{
-    const div = document.createElement('div');
-    div.className='item'; div.id='item-'+ev.id;
-    div.innerHTML = `
-      <h3><span style="display:inline-block;width:10px;height:10px;background:${ev.color||'var(--accent)'};border-radius:999px;margin-right:8px"></span>${ev.title}</h3>
-      <small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}${ev.location?` • ${ev.location}`:''}</small>
-      <div class="sp"></div>
-      <p style="margin:0 0 8px">${ev.description||''}</p>
-      ${ev.link?`<a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a>`:''}
-    `;
-    list.appendChild(div);
+function renderLegend(events){
+  const legend=el('#legend'); legend.innerHTML='';
+  const cats=[...new Map(events.filter(e=>e.category).map(e=>[e.category,e.color||'var(--accent)'])).entries()];
+  cats.forEach(([cat,color])=>{
+    const div=document.createElement('div'); div.className='legend-item';
+    div.innerHTML=`<span class="legend-color" style="background:${color}"></span>${cat}`;
+    legend.appendChild(div);
   });
-
-  // Fyll kategori-dropdown utifrån data
-  const catSel = el('#category');
-  const cur = catSel.value;
-  const cats = [...new Set(events.map(e=>e.category).filter(Boolean))].sort();
-  catSel.innerHTML = '<option value="">Alla kategorier</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
-  if([...catSel.options].some(o=>o.value===cur)) catSel.value = cur;
 }
 
-/* ====== Init/Load ====== */
-let ALL_EVENTS = [];
+function showTooltip(evt,ev){
+  tooltip.innerHTML=`<strong>${ev.title}</strong><br>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}`;
+  tooltip.style.left=(evt.pageX+10)+'px';
+  tooltip.style.top=(evt.pageY+10)+'px';
+  tooltip.style.opacity=1;
+}
+function hideTooltip(){ tooltip.style.opacity=0; }
 
-async function load(year){
-  try{
-    clearError();
-    const data = await fetchEvents(year);
-    ALL_EVENTS = Array.isArray(data) ? data : (data.events || []);
-    drawWheel(ALL_EVENTS);
-    renderList(ALL_EVENTS);
-  }catch(err){ showError(err.message); }
+function renderList(events){
+  const q=el('#search').value.toLowerCase();
+  const c=el('#category').value;
+  const list=el('#list'); list.innerHTML='';
+  events.filter(ev=>(!q||ev.title.toLowerCase().includes(q))&&(!c||ev.category===c))
+    .sort((a,b)=>a.start_date.localeCompare(b.start_date))
+    .forEach(ev=>{
+      const div=document.createElement('div'); div.className='item';
+      div.innerHTML=`<h3>${ev.title}</h3><small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}</small><p>${ev.description||''}</p>`;
+      list.appendChild(div);
+    });
 }
 
-function populateYears(){
-  const yearSel = el('#year');
-  const y=new Date().getFullYear();
-  const years=[y-1,y,y+1,y+2];
-  yearSel.innerHTML=years.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
-}
+async function load(y){ try{clearError(); const d=await fetchEvents(y); drawWheel(d); renderList(d);}catch(e){showError(e.message);} }
+function populateYears(){ const y=new Date().getFullYear(); el('#year').innerHTML=[y-1,y,y+1].map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join(''); }
 
-/* ====== Admin POST (utan preflight) ====== */
 async function adminPost(action,payload){
   const base=el('#apiUrl').value.trim();
   const key=el('#apiKey').value.trim();
   if(!base||!key){alert('Fyll i API-URL + nyckel');return;}
-  localStorage.setItem('apiUrl',base);
-  localStorage.setItem('apiKey',key);
+  localStorage.setItem('apiUrl',base); localStorage.setItem('apiKey',key);
   const body=new URLSearchParams({action,token:key,...payload});
-  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
-  const j=await res.json().catch(()=>({}));
-  if(!res.ok || j.error){alert('Fel: '+(j.error || res.status));return;}
-  await load(el('#year').value);
-  alert('Klart!');
+  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+  const j=await res.json(); if(j.error){alert('Fel: '+j.error);return;}
+  await load(el('#year').value); alert('Klart!');
 }
 
-/* ====== Start ====== */
 window.addEventListener('DOMContentLoaded',()=>{
-  initTheme();
-  populateYears();
-  el('#apiUrl').value=API_BASE;
-  el('#apiKey').value=localStorage.getItem('apiKey')||'';
-
+  initTheme(); populateYears();
+  el('#apiUrl').value=API_BASE; el('#apiKey').value=localStorage.getItem('apiKey')||'';
   el('#refresh').onclick=()=>load(el('#year').value);
-  el('#category').onchange=()=>renderList(ALL_EVENTS);
-  el('#search').oninput=()=>renderList(ALL_EVENTS);
-  el('#year').onchange=()=>load(el('#year').value);
   el('#toggle-admin').onclick=()=>el('#admin').classList.toggle('show');
-
   el('#save').onclick=()=>{
-    if(!el('#title').value || !el('#start').value){ alert('Titel och startdatum krävs'); return; }
+    if(!el('#title').value||!el('#start').value){alert('Titel och startdatum krävs');return;}
     adminPost('upsert',{
-      id:(el('#evId').value||'').trim()||uid(),
-      title:el('#title').value.trim(),
-      description:el('#desc').value.trim(),
-      start_date:el('#start').value,
-      end_date:el('#end').value||'',
-      category:el('#categoryInput').value.trim()||'',
-      color:el('#color').value||'',
-      link:el('#link').value.trim()||'',
-      location:el('#location').value.trim()||''
-    });
-  };
-  el('#del').onclick=()=>{
-    const id=(el('#evId').value||'').trim();
-    if(!id){alert('Ange id att radera');return;}
-    if(confirm('Ta bort händelse?')) adminPost('delete',{id});
-  };
-
-  load(new Date().getFullYear());
-});
-</script>
-</body>
-</html>
+      id:(el('#evId').value||'').trim()||Math.random().toString(36).slice(2,10),
+      title:el('#title').value.trim(), description:el('#desc').value.trim(),
+      start_date:el('#start').value, end_date:el('#end').value||'',
+      category:el('#categoryInput').value.trim()||'', color:el('#color').value||'',
+      link:el('#link').value.trim()||'', location:el('#location').value.trim()||''
