@@ -1,1 +1,435 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Årshjul</title>
+  <style>
+    :root{
+      --bg:#0b1220; --fg:#e6eefc; --muted:#9fb0d3; --card:#101a33; --border:#1e2b4f;
+      --accent:#72a3ff; --accent2:#ffcf70; --good:#5bd6a2; --bad:#ff7a7a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--fg)}
+    header{display:flex; gap:12px; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border); background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent)}
+    h1{font-size:clamp(20px,2.6vw,28px); margin:0; letter-spacing:.3px}
+    .wrap{display:grid; grid-template-columns:360px 1fr; gap:18px; padding:18px}
+    @media (max-width: 980px){ .wrap{ grid-template-columns:1fr; } }
+
+    .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    input, select, button, textarea{background:#0c152d; color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+    button{cursor:pointer}
+    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#0c162f}
+
+    /* Year wheel */
+    .stage{display:grid; place-items:center; min-height:520px;}
+    svg{max-width:100%; height:auto}
+    .legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+
+    /* List */
+    .list{display:flex; flex-direction:column; gap:10px; max-height:520px; overflow:auto;}
+    .item{background:#0c162f; border:1px solid var(--border); border-radius:12px; padding:10px}
+    .item h3{margin:0 0 6px; font-size:15px}
+    .item small{color:var(--muted)}
+
+    .admin{display:none;}
+    .admin.show{display:block}
+    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
+    .mt{margin-top:12px}
+    .right{margin-left:auto}
+    .hint{color:var(--muted); font-size:12px}
+    .sp{height:8px}
+    a{color:var(--accent)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Årshjul</h1>
+    <span class="pill">Datakälla: Google Sheet</span>
+    <span class="pill">TZ: Europe/Stockholm</span>
+    <button id="toggle-admin" class="right">Admin</button>
+  </header>
+
+  <div class="wrap">
+    <section class="card">
+      <div class="row">
+        <input id="search" placeholder="Sök titel/beskrivning…" />
+        <select id="category">
+          <option value="">Alla kategorier</option>
+        </select>
+        <select id="year"></select>
+        <button id="refresh">Uppdatera</button>
+      </div>
+      <div class="stage" id="stage"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin:0 0 10px">Händelser</h2>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+
+  <section class="card admin" id="admin">
+    <h2 style="margin:0 0 8px">Adminpanel</h2>
+    <div class="hint">Denna panel skriver till Google Sheet via ditt Apps Script-API. Fyll i API‑nyckel och Web App‑URL nedan.</div>
+    <div class="grid2 mt">
+      <input id="apiUrl" placeholder="https://script.google.com/macros/s/…/exec" />
+      <input id="apiKey" placeholder="API‑nyckel (X-API-Key)" />
+    </div>
+
+    <h3 style="margin:14px 0 6px">Lägg till / uppdatera händelse</h3>
+    <div class="grid3">
+      <input id="evId" placeholder="id (tomt = nytt)" />
+      <input id="title" placeholder="Titel" />
+      <input id="categoryInput" placeholder="Kategori" />
+    </div>
+    <div class="grid3 mt">
+      <input id="start" type="date" />
+      <input id="end" type="date" />
+      <input id="color" type="color" value="#72a3ff" />
+    </div>
+    <div class="grid2 mt">
+      <input id="link" placeholder="Länk (valfritt)" />
+      <input id="location" placeholder="Plats (valfritt)" />
+    </div>
+    <textarea id="desc" class="mt" rows="3" placeholder="Beskrivning"></textarea>
+    <div class="row mt">
+      <button id="save">Spara</button>
+      <button id="del" style="background:#2a0f14; border-color:#5a1b25">Ta bort</button>
+      <span class="hint">Kommandon skickas med fetch(POST) till Apps Script med JSON‑payload.</span>
+    </div>
+  </section>
+
+<script>
+/**************** KONFIGURERA DITT API ****************/
+// 1) Byt ut API_BASE till din publicerade Apps Script Web App URL (slutar på /exec)
+//    OBS: För läsning (GET) använder vi action=list. För skrivning (POST) krävs X-API-Key.
+const API_BASE = localStorage.getItem('apiUrl') || '';
+const API_KEY  = localStorage.getItem('apiKey') || '';
+
+/**************** HJÄLPFUNKTIONER ****************/
+const TZ = 'Europe/Stockholm';
+const fmt = (d) => new Intl.DateTimeFormat('sv-SE',{ timeZone:TZ, dateStyle:'medium'}).format(d);
+const uid = () => Math.random().toString(36).slice(2,10);
+const el  = (sel) => document.querySelector(sel);
+const ELLIPSE_RX = 180, ELLIPSE_RY = 180; // basradie för hjulet
+const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+
+function dayOfYear(date){
+  const start = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  const diff  = (date - start) / 86400000; // dagar
+  return Math.floor(diff)+1;
+}
+
+function posForDate(date){
+  const year = date.getUTCFullYear();
+  const start = new Date(Date.UTC(year,0,1));
+  const end   = new Date(Date.UTC(year+1,0,1));
+  const totalDays = (end - start)/86400000;
+  const frac = dayOfYear(date)/totalDays; // 0..1
+  const angle = frac * Math.PI*2 - Math.PI/2; // börja topp (kl 12)
+  const x = Math.cos(angle)*ELLIPSE_RX;
+  const y = Math.sin(angle)*ELLIPSE_RY;
+  return {x,y,angle,frac};
+}
+
+/**************** DATAHÄMTNING ****************/
+async function fetchEvents(yearFilter){
+  const url = (localStorage.getItem('apiUrl')||API_BASE) + `?action=list` + (yearFilter?`&year=${yearFilter}`:'');
+  const res = await fetch(url, { headers:{ 'Accept':'application/json' }});
+  if(!res.ok) throw new Error('Kunde inte läsa från API');
+  return res.json();
+}
+
+/**************** RITNING AV ÅRSHJUL ****************/
+function drawWheel(events){
+  const stage = el('#stage');
+  stage.innerHTML = '';
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS,'svg');
+  svg.setAttribute('viewBox','-240 -240 480 480');
+  svg.setAttribute('width','480');
+
+  // Bakgrundsring
+  const ring = document.createElementNS(svgNS,'circle');
+  ring.setAttribute('cx','0'); ring.setAttribute('cy','0'); ring.setAttribute('r','200');
+  ring.setAttribute('fill','none'); ring.setAttribute('stroke','var(--border)'); ring.setAttribute('stroke-width','2');
+  svg.appendChild(ring);
+
+  // Månadstickar & etiketter
+  for(let m=0;m<12;m++){
+    const a = (m/12)*Math.PI*2 - Math.PI/2;
+    const x1 = Math.cos(a)*180, y1=Math.sin(a)*180;
+    const x2 = Math.cos(a)*200, y2=Math.sin(a)*200;
+    const line = document.createElementNS(svgNS,'line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke','var(--border)'); line.setAttribute('stroke-width','2');
+    svg.appendChild(line);
+
+    const lx = Math.cos(a)*155, ly=Math.sin(a)*155;
+    const lbl = document.createElementNS(svgNS,'text');
+    lbl.setAttribute('x',lx); lbl.setAttribute('y',ly);
+    lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('dominant-baseline','middle');
+    lbl.setAttribute('font-size','12'); lbl.setAttribute('fill','var(--muted)');
+    lbl.textContent = MONTHS[m];
+    svg.appendChild(lbl);
+  }
+
+  // Händelseprickar
+  events.forEach(ev => {
+    const d = new Date(ev.start_date+'T12:00:00Z');
+    const p = posForDate(d);
+    const dot = document.createElementNS(svgNS,'circle');
+    dot.setAttribute('cx', p.x);
+    dot.setAttribute('cy', p.y);
+    dot.setAttribute('r', 6);
+    dot.setAttribute('fill', ev.color || 'var(--accent)');
+    dot.setAttribute('opacity','0.9');
+    dot.style.cursor='pointer';
+    dot.addEventListener('mouseenter',()=> dot.setAttribute('r',8));
+    dot.addEventListener('mouseleave',()=> dot.setAttribute('r',6));
+    dot.addEventListener('click',()=>{
+      const target = document.getElementById(`item-${ev.id}`);
+      if(target){ target.scrollIntoView({behavior:'smooth', block:'center'}); target.style.outline='2px solid var(--accent2)'; setTimeout(()=> target.style.outline='none', 1500); }
+    });
+    svg.appendChild(dot);
+  });
+
+  stage.appendChild(svg);
+}
+
+/**************** LISTA ****************/
+function renderList(events){
+  const q = el('#search').value.toLowerCase();
+  const c = el('#category').value;
+  const list = el('#list');
+  list.innerHTML='';
+
+  const filtered = events.filter(ev => {
+    const hay = `${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
+    const okQ = !q || hay.includes(q);
+    const okC = !c || ev.category === c;
+    return okQ && okC;
+  }).sort((a,b)=> a.start_date.localeCompare(b.start_date));
+
+  filtered.forEach(ev => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.id = `item-${ev.id}`;
+    div.innerHTML = `
+      <h3><span style="display:inline-block;width:10px;height:10px;background:${ev.color||'var(--accent)'};border-radius:99px;vertical-align:middle;margin-right:8px"></span>${ev.title}</h3>
+      <small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.location?` • ${ev.location}`:''}${ev.category?` • ${ev.category}`:''}</small>
+      <div class="sp"></div>
+      <p style="margin:0 0 8px">${ev.description||''}</p>
+      ${ev.link?`<a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a>`:''}
+    `;
+    list.appendChild(div);
+  });
+}
+
+/**************** INIT ****************/
+let ALL_EVENTS = [];
+
+async function load(year){
+  const data = await fetchEvents(year);
+  ALL_EVENTS = Array.isArray(data)? data : data.events || [];
+
+  // Kategorier
+  const cats = [...new Set(ALL_EVENTS.map(e=>e.category).filter(Boolean))].sort();
+  const catSel = el('#category');
+  const cur = catSel.value;
+  catSel.innerHTML = '<option value="">Alla kategorier</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if([...catSel.options].some(o=>o.value===cur)) catSel.value = cur;
+
+  drawWheel(ALL_EVENTS);
+  renderList(ALL_EVENTS);
+}
+
+function populateYears(){
+  const yearSel = el('#year');
+  const y = new Date().getFullYear();
+  const years = [y-1,y,y+1,y+2];
+  yearSel.innerHTML = years.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
+}
+
+/**************** ADMIN POST ****************/
+async function adminPost(action, payload){
+  const base = el('#apiUrl').value.trim();
+  const key  = el('#apiKey').value.trim();
+  if(!base || !key){ alert('Fyll i API‑URL och API‑nyckel'); return; }
+  localStorage.setItem('apiUrl', base);
+  localStorage.setItem('apiKey', key);
+  const res = await fetch(base, {
+    method:'POST',
+    headers:{'Content-Type':'application/json', 'X-API-Key': key},
+    body: JSON.stringify({ action, ...payload })
+  });
+  const j = await res.json().catch(()=>({}));
+  if(!res.ok){ alert('Fel: '+(j.error || res.status)); return; }
+  await load(el('#year').value);
+  alert('Klart!');
+}
+
+/**************** EVENT LISTENERS ****************/
+window.addEventListener('DOMContentLoaded', async () =>{
+  populateYears();
+  el('#refresh').addEventListener('click', ()=> load(el('#year').value));
+  el('#search').addEventListener('input', ()=> renderList(ALL_EVENTS));
+  el('#category').addEventListener('change', ()=> renderList(ALL_EVENTS));
+  el('#year').addEventListener('change', ()=> load(el('#year').value));
+
+  el('#toggle-admin').addEventListener('click', ()=> el('#admin').classList.toggle('show'));
+  el('#save').addEventListener('click', ()=>{
+    const payload = {
+      id: (el('#evId').value||'').trim() || uid(),
+      title: el('#title').value.trim(),
+      description: el('#desc').value.trim(),
+      start_date: el('#start').value, // YYYY-MM-DD
+      end_date: el('#end').value || '',
+      category: el('#categoryInput').value.trim() || '',
+      color: el('#color').value || '',
+      link: el('#link').value.trim() || '',
+      location: el('#location').value.trim() || ''
+    };
+    if(!payload.title || !payload.start_date){ alert('Titel och startdatum krävs.'); return; }
+    adminPost('upsert', payload);
+  });
+  el('#del').addEventListener('click', ()=>{
+    const id = (el('#evId').value||'').trim();
+    if(!id){ alert('Ange id att radera'); return; }
+    if(confirm('Ta bort händelse?')) adminPost('delete', { id });
+  });
+
+  await load(el('#year').value || new Date().getFullYear());
+});
+</script>
+
+<!--
+==================== GOOGLE APPS SCRIPT BACKEND ====================
+1) Skapa ett Google Sheet med fliken "Events" och följande rubriker (rad 1):
+   id | title | description | start_date | end_date | category | color | link | location
+
+2) Öppna Extensions → Apps Script på arket och skapa ett nytt Script. Lägg in koden nedan i Code.gs. 
+3) Publicera via Deploy → New deployment → Type: Web app → Execute as: Me → Who has access: Anyone.
+4) Kopiera Web App URL (/exec) och klistra in i fältet "API‑URL" i adminpanelen. 
+5) Skapa en script‑property ADMIN_TOKEN i Projektinställningar → Script properties → Nyckel: ADMIN_TOKEN, Värde: valfri stark nyckel.
+
+----- Code.gs (Apps Script) -----
+
+const SHEET_NAME = 'Events';
+
+function doGet(e){
+  const action = (e.parameter.action||'list').toLowerCase();
+  const year = parseInt(e.parameter.year||'0',10);
+  const out = ContentService.createTextOutput();
+  out.setMimeType(ContentService.MimeType.JSON);
+  try{
+    if(action==='list'){
+      const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_NAME);
+      const values = sh.getDataRange().getValues();
+      const head = values.shift();
+      const idx = Object.fromEntries(head.map((h,i)=>[String(h),i]));
+      const events = values.filter(r=> r[idx.id]).map(r=>({
+        id: String(r[idx.id]),
+        title: String(r[idx.title]||''),
+        description: String(r[idx.description]||''),
+        start_date: Utilities.formatDate(new Date(r[idx.start_date]), 'Europe/Stockholm', 'yyyy-MM-dd'),
+        end_date: r[idx.end_date]? Utilities.formatDate(new Date(r[idx.end_date]), 'Europe/Stockholm', 'yyyy-MM-dd') : '',
+        category: String(r[idx.category]||''),
+        color: String(r[idx.color]||''),
+        link: String(r[idx.link]||''),
+        location: String(r[idx.location]||'')
+      })).filter(e=> !year || String(e.start_date).startsWith(year+''));
+      out.setContent(JSON.stringify(events));
+      return out;
+    }
+    throw new Error('Unknown action');
+  }catch(err){
+    out.setContent(JSON.stringify({error:String(err)}));
+    return out;
+  }
+}
+
+function doPost(e){
+  const out = ContentService.createTextOutput();
+  out.setMimeType(ContentService.MimeType.JSON);
+  try{
+    // CORS preflight hanteras i doOptions (se längst ned)
+    const apiKey = e.parameter && e.parameter['X-API-Key']; // fallback om man skickar som query
+    const headers = e.postData && e.postData.type==='application/json' ? JSON.parse(e.postData.contents||'{}') : {};
+    const token = (e && e.parameter && e.parameter.token) || (headers && headers.token) || (e && e.postData && JSON.parse(e.postData.contents||'{}') && JSON.parse(e.postData.contents||'{}').token);
+    const req = e.postData && e.postData.type==='application/json' ? JSON.parse(e.postData.contents||'{}') : {};
+
+    // Hämta verklig header via HtmlService work‑around
+    const realKey = getHeader_('X-API-Key') || apiKey || (req && req['X-API-Key']);
+    const ADMIN = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
+    if(!realKey || realKey !== ADMIN) throw new Error('Unauthorized');
+
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_NAME);
+    const head = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0];
+    const idx  = Object.fromEntries(head.map((h,i)=>[String(h),i+1]));
+
+    if(req.action==='upsert'){
+      const id = String(req.id);
+      const data = [id, req.title||'', req.description||'', req.start_date||'', req.end_date||'', req.category||'', req.color||'', req.link||'', req.location||''];
+      const rows = sh.getDataRange().getValues();
+      let found = -1;
+      for(let r=1;r<rows.length;r++){ if(String(rows[r][0])===id){ found = r+1; break; } }
+      if(found>0){ sh.getRange(found,1,1,data.length).setValues([data]); }
+      else{ sh.appendRow(data); }
+      out.setContent(JSON.stringify({ok:true,id}));
+      return out;
+    }
+
+    if(req.action==='delete'){
+      const id = String(req.id||'');
+      if(!id) throw new Error('id saknas');
+      const rows = sh.getDataRange().getValues();
+      for(let r=1;r<rows.length;r++){
+        if(String(rows[r][0])===id){ sh.deleteRow(r+1); out.setContent(JSON.stringify({ok:true})); return out; }
+      }
+      throw new Error('Hittade inte id');
+    }
+
+    throw new Error('Okänd action');
+  }catch(err){
+    out.setContent(JSON.stringify({error:String(err)}));
+    return out;
+  }
+}
+
+function doOptions(e){
+  return cors_();
+}
+
+function cors_(payload){
+  const out = ContentService.createTextOutput(JSON.stringify(payload||{ok:true}));
+  out.setMimeType(ContentService.MimeType.JSON);
+  return out;
+}
+
+// Work‑around för att läsa headers (begränsning i Web App)
+function getHeader_(name){
+  try{
+    return HtmlService.createHtmlOutputFromFile('x').getAs(MimeType.TEXT).getDataAsString();
+  }catch(e){
+    return null;
+  }
+}
+
+// Sätt CORS headers på alla svar
+function doFilter(e){
+  // OBS: Detta kräver att du lägger till en webbappfilter‑policy i manifestet om du använder V8 – lämnas förenklat här.
+}
+
+----- Slut Code.gs -----
+
+Tips: Om header‑läsning krånglar i Apps Script kan du istället skicka ?token=... som query‑param och jämföra mot ADMIN_TOKEN.
+-->
+
+</body>
+</html>
 
