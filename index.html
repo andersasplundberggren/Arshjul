@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sv" data-theme="dark">
+<html lang="sv">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -55,17 +55,17 @@
 </head>
 <body>
   <header>
-  <h1>Årshjul</h1>
-  <span class="pill">Datakälla: Google Sheet</span>
-  <span class="pill">TZ: Europe/Stockholm</span>
-  <div class="right"></div>
-  <label class="pill" style="gap:6px; cursor:pointer">
-    <input id="themeSwitch" type="checkbox" style="accent-color:var(--accent)" />
-    <span id="themeLabel">Mörkt läge</span>
-  </label>
-  <button id="toggle-admin" style="margin-left:8px">Admin</button>
-</header>
-
+    <h1>Årshjul</h1>
+    <span class="pill">Datakälla: Google Sheet</span>
+    <span class="pill">TZ: Europe/Stockholm</span>
+    <div class="right"></div>
+    <!-- Tema-switch -->
+    <label class="pill" style="gap:8px; cursor:pointer">
+      <input id="themeSwitch" type="checkbox" style="accent-color:var(--accent)" />
+      <span id="themeLabel">Mörkt läge</span>
+    </label>
+    <button id="toggle-admin" style="margin-left:8px">Admin</button>
+  </header>
 
   <div class="wrap">
     <section class="card">
@@ -119,9 +119,11 @@
   </section>
 
 <script>
+/* ====== KONFIG ====== */
 const DEFAULT_API_BASE = 'https://script.google.com/macros/s/AKfycbySOXro_Qk9bqD98mUBbJ3h1voYuD-EJ1QD8ZLpsi3cw8feXCUx-shoMYI0umx6vEnW/exec';
 const API_BASE = localStorage.getItem('apiUrl') || DEFAULT_API_BASE;
 
+/* ====== Hjälpare ====== */
 const TZ = 'Europe/Stockholm';
 const uid = () => Math.random().toString(36).slice(2,10);
 const el  = (sel) => document.querySelector(sel);
@@ -131,49 +133,49 @@ const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov
 function showError(msg){ const box = el('#err'); box.textContent = msg; box.style.display = 'block'; }
 function clearError(){ const box = el('#err'); box.textContent = ''; box.style.display = 'none'; }
 
-/* ====== Tema-hantering ====== */
-function applyTheme(theme){
-  // theme: 'light' | 'dark' | 'auto'
+/* ====== Tema-switch ====== */
+function initTheme(){
+  const saved = localStorage.getItem('theme2') || 'dark';
   const root = document.documentElement;
-  if(theme === 'auto'){
-    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-    root.classList.toggle('light', prefersLight);
-  } else {
-    root.classList.toggle('light', theme === 'light');
-  }
-  localStorage.setItem('theme', theme);
-  el('#toggle-theme').textContent = theme==='light' ? '🌞 Mörkt' : theme==='dark' ? '🌙 Ljust' : '🌓 Auto';
+  const sw = el('#themeSwitch');
+  const lbl = el('#themeLabel');
+  const isLight = saved==='light';
+  root.classList.toggle('light', isLight);
+  sw.checked = isLight;
+  lbl.textContent = isLight ? 'Ljust läge' : 'Mörkt läge';
+  sw.onchange = ()=>{
+    const on = sw.checked;
+    root.classList.toggle('light', on);
+    localStorage.setItem('theme2', on ? 'light' : 'dark');
+    lbl.textContent = on ? 'Ljust läge' : 'Mörkt läge';
+  };
 }
 
-function cycleTheme(){
-  const cur = localStorage.getItem('theme') || 'auto';
-  const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
-  applyTheme(next);
-}
-
-/* ====== Hjälpfunktioner ====== */
+/* ====== Datum → position/vinkel ====== */
 function dayOfYear(date){
   const start = new Date(Date.UTC(date.getUTCFullYear(),0,1));
   return Math.floor((date - start) / 86400000)+1;
 }
-function posForDate(date){
+function angleFor(date){
   const year = date.getUTCFullYear();
   const start = new Date(Date.UTC(year,0,1));
   const end   = new Date(Date.UTC(year+1,0,1));
   const totalDays = (end - start)/86400000;
-  const frac = dayOfYear(date)/totalDays;
-  const angle = frac * Math.PI*2 - Math.PI/2;
-  return {x:Math.cos(angle)*ELLIPSE_RX, y:Math.sin(angle)*ELLIPSE_RY};
+  const day = dayOfYear(date);
+  const frac = day/totalDays;
+  return frac * Math.PI*2 - Math.PI/2; // 0 rad = kl 3, vi börjar uppe
 }
 
+/* ====== Datahämtning ====== */
 async function fetchEvents(yearFilter){
   const base = localStorage.getItem('apiUrl') || API_BASE;
   const url = base + `?action=list` + (yearFilter?`&year=${yearFilter}`:'');
-  const res = await fetch(url);
+  const res = await fetch(url, { headers:{ 'Accept':'application/json' }});
   if(!res.ok) throw new Error('API fel ('+res.status+')');
   return res.json();
 }
 
+/* ====== Rita årshjul (prick + periodbåge) ====== */
 function drawWheel(events){
   const stage = el('#stage');
   stage.innerHTML = '';
@@ -181,11 +183,15 @@ function drawWheel(events){
   const svg = document.createElementNS(svgNS,'svg');
   svg.setAttribute('viewBox','-240 -240 480 480');
 
+  const R_DOT = 6, R_ARC = 190;
+
+  // Bakgrundsring
   const ring = document.createElementNS(svgNS,'circle');
   ring.setAttribute('r','200'); ring.setAttribute('fill','none');
   ring.setAttribute('stroke','var(--border)'); ring.setAttribute('stroke-width','2');
   svg.appendChild(ring);
 
+  // Månadstickar & etiketter
   for(let m=0;m<12;m++){
     const a = (m/12)*Math.PI*2 - Math.PI/2;
     const x1 = Math.cos(a)*180, y1=Math.sin(a)*180;
@@ -205,45 +211,116 @@ function drawWheel(events){
     svg.appendChild(lbl);
   }
 
+  function arcBetween(s,e,color){
+    const a1 = angleFor(s);
+    const a2 = angleFor(e);
+    const delta = (a2 - a1 + Math.PI*2) % (Math.PI*2);
+    const largeArc = delta > Math.PI ? 1 : 0;
+    const sweep = 1;
+    const x1 = Math.cos(a1)*R_ARC, y1 = Math.sin(a1)*R_ARC;
+    const x2 = Math.cos(a2)*R_ARC, y2 = Math.sin(a2)*R_ARC;
+    const path = document.createElementNS(svgNS,'path');
+    const d = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${R_ARC} ${R_ARC} 0 ${largeArc} ${sweep} ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    path.setAttribute('d', d);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width','6');
+    path.setAttribute('stroke-linecap','round');
+    path.setAttribute('opacity','0.85');
+    svg.appendChild(path);
+  }
+
+  function drawArc(startDate,endDate,color){
+    const y = startDate.getUTCFullYear();
+    const clampStart = new Date(Date.UTC(y,0,1));
+    const clampEnd   = new Date(Date.UTC(y+1,0,1) - 1);
+
+    if(!endDate || isNaN(endDate.getTime())){
+      const a = angleFor(startDate);
+      const dot = document.createElementNS(svgNS,'circle');
+      dot.setAttribute('cx', Math.cos(a)*R_ARC);
+      dot.setAttribute('cy', Math.sin(a)*R_ARC);
+      dot.setAttribute('r', R_DOT);
+      dot.setAttribute('fill', color);
+      svg.appendChild(dot);
+      return;
+    }
+
+    if(endDate < startDate){
+      // wrap: rita del i detta år (start → 31/12)
+      arcBetween(startDate, new Date(Date.UTC(y,11,31)), color);
+      return;
+    }
+
+    const s = new Date(Math.max(startDate, clampStart));
+    const e = new Date(Math.min(endDate, clampEnd));
+    arcBetween(s,e,color);
+  }
+
+  // Rita events
   events.forEach(ev=>{
-    const d = new Date(ev.start_date+'T12:00:00Z');
-    const p = posForDate(d);
-    const dot = document.createElementNS(svgNS,'circle');
-    dot.setAttribute('cx',p.x); dot.setAttribute('cy',p.y);
-    dot.setAttribute('r','6'); dot.setAttribute('fill',ev.color||'var(--accent)');
-    svg.appendChild(dot);
+    const color = ev.color || 'var(--accent)';
+    const sd = new Date(ev.start_date+'T12:00:00Z');
+    const ed = ev.end_date ? new Date(ev.end_date+'T12:00:00Z') : null;
+    drawArc(sd, ed, color);
   });
+
   stage.appendChild(svg);
 }
 
+/* ====== Listan + filter ====== */
 function renderList(events){
   const q = el('#search').value.toLowerCase();
   const c = el('#category').value;
   const list = el('#list'); list.innerHTML='';
-  events.filter(ev=>{
-    return (!q || `${ev.title} ${ev.description||''}`.toLowerCase().includes(q)) && (!c || ev.category===c);
-  }).sort((a,b)=>a.start_date.localeCompare(b.start_date))
-  .forEach(ev=>{
+
+  const filtered = events.filter(ev=>{
+    const hay = `${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
+    return (!q || hay.includes(q)) && (!c || ev.category===c);
+  }).sort((a,b)=>a.start_date.localeCompare(b.start_date));
+
+  filtered.forEach(ev=>{
     const div = document.createElement('div');
     div.className='item'; div.id='item-'+ev.id;
-    div.innerHTML = `<h3>${ev.title}</h3><small>${ev.start_date}${ev.category?` • ${ev.category}`:''}</small><p>${ev.description||''}</p>`;
+    div.innerHTML = `
+      <h3><span style="display:inline-block;width:10px;height:10px;background:${ev.color||'var(--accent)'};border-radius:999px;margin-right:8px"></span>${ev.title}</h3>
+      <small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}${ev.location?` • ${ev.location}`:''}</small>
+      <div class="sp"></div>
+      <p style="margin:0 0 8px">${ev.description||''}</p>
+      ${ev.link?`<a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a>`:''}
+    `;
     list.appendChild(div);
   });
+
+  // Fyll kategori-dropdown utifrån data
+  const catSel = el('#category');
+  const cur = catSel.value;
+  const cats = [...new Set(events.map(e=>e.category).filter(Boolean))].sort();
+  catSel.innerHTML = '<option value="">Alla kategorier</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if([...catSel.options].some(o=>o.value===cur)) catSel.value = cur;
 }
+
+/* ====== Init/Load ====== */
+let ALL_EVENTS = [];
 
 async function load(year){
   try{
     clearError();
     const data = await fetchEvents(year);
-    drawWheel(data); renderList(data);
+    ALL_EVENTS = Array.isArray(data) ? data : (data.events || []);
+    drawWheel(ALL_EVENTS);
+    renderList(ALL_EVENTS);
   }catch(err){ showError(err.message); }
 }
+
 function populateYears(){
   const yearSel = el('#year');
   const y=new Date().getFullYear();
-  yearSel.innerHTML=[y-1,y,y+1,y+2].map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join('');
+  const years=[y-1,y,y+1,y+2];
+  yearSel.innerHTML=years.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
 }
 
+/* ====== Admin POST (utan preflight) ====== */
 async function adminPost(action,payload){
   const base=el('#apiUrl').value.trim();
   const key=el('#apiKey').value.trim();
@@ -251,29 +328,26 @@ async function adminPost(action,payload){
   localStorage.setItem('apiUrl',base);
   localStorage.setItem('apiKey',key);
   const body=new URLSearchParams({action,token:key,...payload});
-  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-  const j=await res.json(); if(j.error){alert('Fel: '+j.error);return;}
+  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok || j.error){alert('Fel: '+(j.error || res.status));return;}
   await load(el('#year').value);
   alert('Klart!');
 }
 
+/* ====== Start ====== */
 window.addEventListener('DOMContentLoaded',()=>{
-  // Tema init: använd sparad inställning eller auto (följer OS)
-  const savedTheme = localStorage.getItem('theme') || 'auto';
-  applyTheme(savedTheme);
-  // Uppdatera vid OS-temaändring när 'auto'
-  if(window.matchMedia){
-    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e=>{
-      if((localStorage.getItem('theme')||'auto')==='auto') applyTheme('auto');
-    });
-  }
-
+  initTheme();
   populateYears();
   el('#apiUrl').value=API_BASE;
   el('#apiKey').value=localStorage.getItem('apiKey')||'';
+
   el('#refresh').onclick=()=>load(el('#year').value);
+  el('#category').onchange=()=>renderList(ALL_EVENTS);
+  el('#search').oninput=()=>renderList(ALL_EVENTS);
+  el('#year').onchange=()=>load(el('#year').value);
   el('#toggle-admin').onclick=()=>el('#admin').classList.toggle('show');
-  el('#toggle-theme').onclick=cycleTheme;
+
   el('#save').onclick=()=>{
     if(!el('#title').value || !el('#start').value){ alert('Titel och startdatum krävs'); return; }
     adminPost('upsert',{
@@ -293,10 +367,9 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(!id){alert('Ange id att radera');return;}
     if(confirm('Ta bort händelse?')) adminPost('delete',{id});
   };
+
   load(new Date().getFullYear());
 });
 </script>
-
-<!-- Apps Script-koden (Code.gs) ändras inte för tema. Finns i tidigare del. -->
 </body>
 </html>
