@@ -8,11 +8,16 @@
   <style>
     :root{ --bg:#0b1220; --fg:#e6eefc; --muted:#9fb0d3; --card:#101a33; --border:#1e2b4f; --accent:#72a3ff; --accent2:#ffcf70; --good:#5bd6a2; --bad:#ff7a7a; }
     :root.light{ --bg:#ffffff; --fg:#0b1220; --muted:#52607a; --card:#ffffff; --border:#e5e7eb; --accent:#2b59ff; --accent2:#b45309; --good:#059669; --bad:#dc2626; }
+
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--fg)}
     header{display:flex; gap:12px; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border)}
     h1{font-size:clamp(20px,2.6vw,28px); margin:0}
+    /* Logo-stil */
+    .logo{height:36px; width:auto; display:block}
+    @media (max-width:980px){ .logo{height:28px} }
+
     .wrap{display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:18px; height:calc(100vh - 78px); align-items:stretch}
     @media (max-width:980px){ .wrap{grid-template-columns:1fr; height:auto} }
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; min-height:0}
@@ -39,9 +44,12 @@
 </head>
 <body>
   <header>
+    <img class="logo" src="https://karlskoga.se/images/18.17cf90041722ce1749b5e/1640015633047/Karlskoga_liggande.png" alt="Karlskoga kommun">
     <h1>Årshjul</h1>
-    <span class="pill">Tidzon: Europe/Stockholm</span>
+    <span class="pill">Datakälla: Google Sheet</span>
+    <span class="pill">TZ: Europe/Stockholm</span>
     <div class="right"></div>
+    <a href="admin.html" class="pill">Admin</a>
     <label class="pill" style="gap:6px; cursor:pointer">
       <input id="themeSwitch" type="checkbox" />
       <span id="themeLabel">Mörkt läge</span>
@@ -88,14 +96,7 @@ function initTheme(){const saved=localStorage.getItem('theme2')||'dark';const ro
 function dayOfYear(d){const s=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.floor((d-s)/86400000)+1;}
 function angleFor(d){const y=d.getUTCFullYear();const s=new Date(Date.UTC(y,0,1));const e=new Date(Date.UTC(y+1,0,1));const total=(e-s)/86400000;const frac=dayOfYear(d)/total;return frac*Math.PI*2 - Math.PI/2;}
 function yearWindow(y){return{start:new Date(Date.UTC(y,0,1)),end:new Date(Date.UTC(y,11,31,23,59,59))};}
-
-/* Normalisera intervall som skrivits med slut < start (tolkas som nästa år) */
-function normalizeRange(s,e){
-  if(!e) return {s,e:s};
-  let s2=new Date(s), e2=new Date(e);
-  while(e2 <= s2){ e2.setUTCFullYear(e2.getUTCFullYear()+1); }
-  return {s:s2,e:e2};
-}
+function normalizeRange(s,e){if(!e) return {s,e:s};let s2=new Date(s), e2=new Date(e);while(e2 <= s2){ e2.setUTCFullYear(e2.getUTCFullYear()+1); }return {s:s2,e:e2};}
 
 async function fetchEvents(){
   const base=localStorage.getItem('apiUrl')||API_BASE;
@@ -111,7 +112,6 @@ function filterForYear(all,y){
     const sRaw=new Date(ev.start_date+'T12:00:00Z');
     const eRaw=ev.end_date?new Date(ev.end_date+'T23:59:59Z'):null;
     const {s,e}=normalizeRange(sRaw,eRaw||sRaw);
-    // överlapp med året?
     if(e<start || s>end) return null;
     const segStart=new Date(Math.max(s,start));
     const segEnd=new Date(Math.min(e,end));
