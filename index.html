@@ -192,13 +192,10 @@ function angleFor(date){
   return frac * Math.PI*2 - Math.PI/2;
 }
 function yearWindow(y){
-  return {
-    start: new Date(Date.UTC(y,0,1)),
-    end:   new Date(Date.UTC(y,11,31,23,59,59))
-  };
+  return { start: new Date(Date.UTC(y,0,1)), end: new Date(Date.UTC(y,11,31,23,59,59)) };
 }
 
-/* ====== Datahämtning (ALLT, vi filtrerar klient-side) ====== */
+/* ====== Datahämtning (ALLT, filtreras klient-side) ====== */
 async function fetchEvents(){
   const base = localStorage.getItem('apiUrl') || API_BASE;
   const url = base + `?action=list`;
@@ -212,12 +209,10 @@ async function fetchEvents(){
 /* ====== Filtrera till valt år + bygg lanes ====== */
 function filterForYear(all, y){
   const {start, end} = yearWindow(y);
-  // Ta med event om de överlappar året (start..end)
   const arr = all.map(ev=>{
     const s = new Date(ev.start_date+'T12:00:00Z');
     const e = ev.end_date ? new Date(ev.end_date+'T23:59:59Z') : new Date(ev.start_date+'T23:59:59Z');
     if(e < start || s > end) return null; // ingen överlappning
-    // Klipp till årsfönster för ritning
     const segStart = new Date(Math.max(s, start));
     const segEnd   = new Date(Math.min(e, end));
     return {...ev, _segStart: segStart, _segEnd: segEnd};
@@ -330,7 +325,25 @@ function drawWheel(events){
   stage.appendChild(svg);
 }
 
-/* ====== Listan + filter ====== */
+/* ====== Sök/Kategori-filter → uppdatera hjul+legend+lista ====== */
+function getFiltered(base = VIEW_EVENTS){
+  const q = el('#search').value.toLowerCase();
+  const c = el('#category').value;
+  return base.filter(ev=>{
+    const hay = `${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
+    const okQ = !q || hay.includes(q);
+    const okC = !c || ev.category === c;
+    return okQ && okC;
+  });
+}
+function updateFilteredUI(){
+  const filtered = getFiltered(VIEW_EVENTS);
+  buildLegend(filtered);     // legend på filtrerat
+  drawWheel(filtered);       // hjul på filtrerat
+  renderList(VIEW_EVENTS);   // listan filtrerar internt, men behåller options från VIEW_EVENTS
+}
+
+/* ====== Listan + filter (inre filtrering men fyller options från events-param) ====== */
 function renderList(events){
   const q = el('#search').value.toLowerCase();
   const c = el('#category').value;
@@ -375,9 +388,7 @@ function recomputeView(){
     const y = parseInt(el('#year').value || String(new Date().getFullYear()), 10);
     CATEGORY_COLORS = {};
     VIEW_EVENTS = filterForYear(ALL_EVENTS, y);
-    buildLegend(VIEW_EVENTS);
-    drawWheel(VIEW_EVENTS);
-    renderList(VIEW_EVENTS);
+    updateFilteredUI(); // ritar hjul+legend på filtrerat och listan korrekt
   }catch(err){ showError(err.message); console.error(err); }
 }
 function populateYears(){
@@ -413,9 +424,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   el('#apiUrl').value = API_BASE;
   el('#apiKey').value = localStorage.getItem('apiKey') || '';
 
-  el('#refresh').onclick = ()=> recomputeView();
-  el('#category').onchange = ()=> renderList(VIEW_EVENTS);
-  el('#search').oninput = ()=> renderList(VIEW_EVENTS);
+  el('#refresh').onclick = ()=> loadAll();        // hämta om från Google Sheets
+  el('#category').onchange = ()=> updateFilteredUI();
+  el('#search').oninput = ()=> updateFilteredUI();
   el('#year').onchange = ()=> recomputeView();
   el('#toggle-admin').onclick = ()=> el('#admin').classList.toggle('show');
 
