@@ -55,13 +55,17 @@
 </head>
 <body>
   <header>
-    <h1>Årshjul</h1>
-    <span class="pill">Datakälla: Google Sheet</span>
-    <span class="pill">TZ: Europe/Stockholm</span>
-    <div class="right"></div>
-    <button id="toggle-theme" title="Byt tema">🌓 Tema</button>
-    <button id="toggle-admin" style="margin-left:8px">Admin</button>
-  </header>
+  <h1>Årshjul</h1>
+  <span class="pill">Datakälla: Google Sheet</span>
+  <span class="pill">TZ: Europe/Stockholm</span>
+  <div class="right"></div>
+  <label class="pill" style="gap:6px; cursor:pointer">
+    <input id="themeSwitch" type="checkbox" style="accent-color:var(--accent)" />
+    <span id="themeLabel">Mörkt läge</span>
+  </label>
+  <button id="toggle-admin" style="margin-left:8px">Admin</button>
+</header>
+
 
   <div class="wrap">
     <section class="card">
