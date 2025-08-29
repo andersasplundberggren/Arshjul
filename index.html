@@ -22,12 +22,10 @@
     button{cursor:pointer}
     .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#0c162f}
 
-    /* Year wheel */
     .stage{display:grid; place-items:center; min-height:520px;}
     svg{max-width:100%; height:auto}
     .legend{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
 
-    /* List */
     .list{display:flex; flex-direction:column; gap:10px; max-height:520px; overflow:auto;}
     .item{background:#0c162f; border:1px solid var(--border); border-radius:12px; padding:10px}
     .item h3{margin:0 0 6px; font-size:15px}
@@ -42,6 +40,7 @@
     .hint{color:var(--muted); font-size:12px}
     .sp{height:8px}
     a{color:var(--accent)}
+    .error{background:#2a0f14; border:1px solid #5a1b25; color:#ffd2d2; padding:10px; border-radius:10px; margin-top:10px; display:none}
   </style>
 </head>
 <body>
@@ -64,6 +63,7 @@
       </div>
       <div class="stage" id="stage"></div>
       <div class="legend" id="legend"></div>
+      <div class="error" id="err"></div>
     </section>
 
     <section class="card">
@@ -74,10 +74,10 @@
 
   <section class="card admin" id="admin">
     <h2 style="margin:0 0 8px">Adminpanel</h2>
-    <div class="hint">Denna panel skriver till Google Sheet via ditt Apps Script-API. Fyll i API‑nyckel och Web App‑URL nedan.</div>
+    <div class="hint">Fyll i din API-nyckel (ADMIN_TOKEN). URL är redan satt till din Web App.</div>
     <div class="grid2 mt">
-      <input id="apiUrl" placeholder="https://script.google.com/macros/s/…/exec" />
-      <input id="apiKey" placeholder="API‑nyckel (X-API-Key)" />
+      <input id="apiUrl" />
+      <input id="apiKey" placeholder="ADMIN_TOKEN" />
     </div>
 
     <h3 style="margin:14px 0 6px">Lägg till / uppdatera händelse</h3>
@@ -99,214 +99,137 @@
     <div class="row mt">
       <button id="save">Spara</button>
       <button id="del" style="background:#2a0f14; border-color:#5a1b25">Ta bort</button>
-      <span class="hint">Kommandon skickas med fetch(POST) till Apps Script med JSON‑payload.</span>
     </div>
   </section>
 
 <script>
-/**************** KONFIGURERA DITT API ****************/
-// 1) Byt ut API_BASE till din publicerade Apps Script Web App URL (slutar på /exec)
-//    OBS: För läsning (GET) använder vi action=list. För skrivning (POST) krävs X-API-Key.
-const API_BASE = localStorage.getItem('apiUrl') || '';
-const API_KEY  = localStorage.getItem('apiKey') || '';
+const DEFAULT_API_BASE = 'https://script.google.com/macros/s/AKfycbySOXro_Qk9bqD98mUBbJ3h1voYuD-EJ1QD8ZLpsi3cw8feXCUx-shoMYI0umx6vEnW/exec';
+const API_BASE = localStorage.getItem('apiUrl') || DEFAULT_API_BASE;
 
-/**************** HJÄLPFUNKTIONER ****************/
 const TZ = 'Europe/Stockholm';
-const fmt = (d) => new Intl.DateTimeFormat('sv-SE',{ timeZone:TZ, dateStyle:'medium'}).format(d);
 const uid = () => Math.random().toString(36).slice(2,10);
 const el  = (sel) => document.querySelector(sel);
-const ELLIPSE_RX = 180, ELLIPSE_RY = 180; // basradie för hjulet
+const ELLIPSE_RX = 180, ELLIPSE_RY = 180;
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+
+function showError(msg){ const box = el('#err'); box.textContent = msg; box.style.display = 'block'; }
+function clearError(){ const box = el('#err'); box.textContent = ''; box.style.display = 'none'; }
 
 function dayOfYear(date){
   const start = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-  const diff  = (date - start) / 86400000; // dagar
-  return Math.floor(diff)+1;
+  return Math.floor((date - start) / 86400000)+1;
 }
-
 function posForDate(date){
   const year = date.getUTCFullYear();
   const start = new Date(Date.UTC(year,0,1));
   const end   = new Date(Date.UTC(year+1,0,1));
   const totalDays = (end - start)/86400000;
-  const frac = dayOfYear(date)/totalDays; // 0..1
-  const angle = frac * Math.PI*2 - Math.PI/2; // börja topp (kl 12)
-  const x = Math.cos(angle)*ELLIPSE_RX;
-  const y = Math.sin(angle)*ELLIPSE_RY;
-  return {x,y,angle,frac};
+  const frac = dayOfYear(date)/totalDays;
+  const angle = frac * Math.PI*2 - Math.PI/2;
+  return {x:Math.cos(angle)*ELLIPSE_RX, y:Math.sin(angle)*ELLIPSE_RY};
 }
 
-/**************** DATAHÄMTNING ****************/
 async function fetchEvents(yearFilter){
-  const url = (localStorage.getItem('apiUrl')||API_BASE) + `?action=list` + (yearFilter?`&year=${yearFilter}`:'');
-  const res = await fetch(url, { headers:{ 'Accept':'application/json' }});
-  if(!res.ok) throw new Error('Kunde inte läsa från API');
+  const base = localStorage.getItem('apiUrl') || API_BASE;
+  const url = base + `?action=list` + (yearFilter?`&year=${yearFilter}`:'');
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('API fel ('+res.status+')');
   return res.json();
 }
 
-/**************** RITNING AV ÅRSHJUL ****************/
 function drawWheel(events){
   const stage = el('#stage');
   stage.innerHTML = '';
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS,'svg');
   svg.setAttribute('viewBox','-240 -240 480 480');
-  svg.setAttribute('width','480');
 
-  // Bakgrundsring
   const ring = document.createElementNS(svgNS,'circle');
-  ring.setAttribute('cx','0'); ring.setAttribute('cy','0'); ring.setAttribute('r','200');
-  ring.setAttribute('fill','none'); ring.setAttribute('stroke','var(--border)'); ring.setAttribute('stroke-width','2');
+  ring.setAttribute('r','200'); ring.setAttribute('fill','none');
+  ring.setAttribute('stroke','var(--border)'); ring.setAttribute('stroke-width','2');
   svg.appendChild(ring);
 
-  // Månadstickar & etiketter
   for(let m=0;m<12;m++){
     const a = (m/12)*Math.PI*2 - Math.PI/2;
     const x1 = Math.cos(a)*180, y1=Math.sin(a)*180;
     const x2 = Math.cos(a)*200, y2=Math.sin(a)*200;
     const line = document.createElementNS(svgNS,'line');
-    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
-    line.setAttribute('stroke','var(--border)'); line.setAttribute('stroke-width','2');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke','var(--border)');
     svg.appendChild(line);
 
     const lx = Math.cos(a)*155, ly=Math.sin(a)*155;
     const lbl = document.createElementNS(svgNS,'text');
     lbl.setAttribute('x',lx); lbl.setAttribute('y',ly);
-    lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('dominant-baseline','middle');
-    lbl.setAttribute('font-size','12'); lbl.setAttribute('fill','var(--muted)');
+    lbl.setAttribute('text-anchor','middle');
+    lbl.setAttribute('fill','var(--muted)');
     lbl.textContent = MONTHS[m];
     svg.appendChild(lbl);
   }
 
-  // Händelseprickar
-  events.forEach(ev => {
+  events.forEach(ev=>{
     const d = new Date(ev.start_date+'T12:00:00Z');
     const p = posForDate(d);
     const dot = document.createElementNS(svgNS,'circle');
-    dot.setAttribute('cx', p.x);
-    dot.setAttribute('cy', p.y);
-    dot.setAttribute('r', 6);
-    dot.setAttribute('fill', ev.color || 'var(--accent)');
-    dot.setAttribute('opacity','0.9');
-    dot.style.cursor='pointer';
-    dot.addEventListener('mouseenter',()=> dot.setAttribute('r',8));
-    dot.addEventListener('mouseleave',()=> dot.setAttribute('r',6));
-    dot.addEventListener('click',()=>{
-      const target = document.getElementById(`item-${ev.id}`);
-      if(target){ target.scrollIntoView({behavior:'smooth', block:'center'}); target.style.outline='2px solid var(--accent2)'; setTimeout(()=> target.style.outline='none', 1500); }
-    });
+    dot.setAttribute('cx',p.x); dot.setAttribute('cy',p.y);
+    dot.setAttribute('r','6'); dot.setAttribute('fill',ev.color||'var(--accent)');
     svg.appendChild(dot);
   });
-
   stage.appendChild(svg);
 }
 
-/**************** LISTA ****************/
 function renderList(events){
   const q = el('#search').value.toLowerCase();
   const c = el('#category').value;
-  const list = el('#list');
-  list.innerHTML='';
-
-  const filtered = events.filter(ev => {
-    const hay = `${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
-    const okQ = !q || hay.includes(q);
-    const okC = !c || ev.category === c;
-    return okQ && okC;
-  }).sort((a,b)=> a.start_date.localeCompare(b.start_date));
-
-  filtered.forEach(ev => {
+  const list = el('#list'); list.innerHTML='';
+  events.filter(ev=>{
+    return (!q || ev.title.toLowerCase().includes(q)) && (!c || ev.category===c);
+  }).sort((a,b)=>a.start_date.localeCompare(b.start_date))
+  .forEach(ev=>{
     const div = document.createElement('div');
-    div.className = 'item';
-    div.id = `item-${ev.id}`;
-    div.innerHTML = `
-      <h3><span style="display:inline-block;width:10px;height:10px;background:${ev.color||'var(--accent)'};border-radius:99px;vertical-align:middle;margin-right:8px"></span>${ev.title}</h3>
-      <small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.location?` • ${ev.location}`:''}${ev.category?` • ${ev.category}`:''}</small>
-      <div class="sp"></div>
-      <p style="margin:0 0 8px">${ev.description||''}</p>
-      ${ev.link?`<a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a>`:''}
-    `;
+    div.className='item'; div.id='item-'+ev.id;
+    div.innerHTML = `<h3>${ev.title}</h3><small>${ev.start_date}</small><p>${ev.description||''}</p>`;
     list.appendChild(div);
   });
 }
 
-/**************** INIT ****************/
-let ALL_EVENTS = [];
-
 async function load(year){
-  const data = await fetchEvents(year);
-  ALL_EVENTS = Array.isArray(data)? data : data.events || [];
-
-  // Kategorier
-  const cats = [...new Set(ALL_EVENTS.map(e=>e.category).filter(Boolean))].sort();
-  const catSel = el('#category');
-  const cur = catSel.value;
-  catSel.innerHTML = '<option value="">Alla kategorier</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
-  if([...catSel.options].some(o=>o.value===cur)) catSel.value = cur;
-
-  drawWheel(ALL_EVENTS);
-  renderList(ALL_EVENTS);
+  try{
+    clearError();
+    const data = await fetchEvents(year);
+    drawWheel(data); renderList(data);
+  }catch(err){ showError(err.message); }
 }
-
 function populateYears(){
   const yearSel = el('#year');
-  const y = new Date().getFullYear();
-  const years = [y-1,y,y+1,y+2];
-  yearSel.innerHTML = years.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
+  const y=new Date().getFullYear();
+  yearSel.innerHTML=[y-1,y,y+1].map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join('');
 }
 
-/**************** ADMIN POST ****************/
-async function adminPost(action, payload){
-  const base = el('#apiUrl').value.trim();
-  const key  = el('#apiKey').value.trim();
-  if(!base || !key){ alert('Fyll i API‑URL och API‑nyckel'); return; }
-  localStorage.setItem('apiUrl', base);
-  localStorage.setItem('apiKey', key);
-  const res = await fetch(base, {
-    method:'POST',
-    headers:{'Content-Type':'application/json', 'X-API-Key': key},
-    body: JSON.stringify({ action, ...payload })
-  });
-  const j = await res.json().catch(()=>({}));
-  if(!res.ok){ alert('Fel: '+(j.error || res.status)); return; }
+async function adminPost(action,payload){
+  const base=el('#apiUrl').value.trim();
+  const key=el('#apiKey').value.trim();
+  if(!base||!key){alert('Fyll i API-URL + nyckel');return;}
+  localStorage.setItem('apiUrl',base);
+  localStorage.setItem('apiKey',key);
+  const body=new URLSearchParams({action,token:key,...payload});
+  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+  const j=await res.json(); if(j.error){alert('Fel: '+j.error);return;}
   await load(el('#year').value);
   alert('Klart!');
 }
 
-/**************** EVENT LISTENERS ****************/
-window.addEventListener('DOMContentLoaded', async () =>{
+window.addEventListener('DOMContentLoaded',()=>{
   populateYears();
-  el('#refresh').addEventListener('click', ()=> load(el('#year').value));
-  el('#search').addEventListener('input', ()=> renderList(ALL_EVENTS));
-  el('#category').addEventListener('change', ()=> renderList(ALL_EVENTS));
-  el('#year').addEventListener('change', ()=> load(el('#year').value));
-
-  el('#toggle-admin').addEventListener('click', ()=> el('#admin').classList.toggle('show'));
-  el('#save').addEventListener('click', ()=>{
-    const payload = {
-      id: (el('#evId').value||'').trim() || uid(),
-      title: el('#title').value.trim(),
-      description: el('#desc').value.trim(),
-      start_date: el('#start').value, // YYYY-MM-DD
-      end_date: el('#end').value || '',
-      category: el('#categoryInput').value.trim() || '',
-      color: el('#color').value || '',
-      link: el('#link').value.trim() || '',
-      location: el('#location').value.trim() || ''
-    };
-    if(!payload.title || !payload.start_date){ alert('Titel och startdatum krävs.'); return; }
-    adminPost('upsert', payload);
-  });
-  el('#del').addEventListener('click', ()=>{
-    const id = (el('#evId').value||'').trim();
-    if(!id){ alert('Ange id att radera'); return; }
-    if(confirm('Ta bort händelse?')) adminPost('delete', { id });
-  });
-
-  await load(el('#year').value || new Date().getFullYear());
+  el('#apiUrl').value=API_BASE;
+  el('#apiKey').value=localStorage.getItem('apiKey')||'';
+  el('#refresh').onclick=()=>load(el('#year').value);
+  el('#toggle-admin').onclick=()=>el('#admin').classList.toggle('show');
+  el('#save').onclick=()=>adminPost('upsert',{id:uid(),title:el('#title').value,start_date:el('#start').value});
+  el('#del').onclick=()=>adminPost('delete',{id:el('#evId').value});
+  load(new Date().getFullYear());
 });
--->
-
+</script>
 </body>
 </html>
-
