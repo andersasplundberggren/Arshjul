@@ -19,7 +19,7 @@
       grid-template-columns: 1fr auto 1fr;
       align-items:center;
       gap:12px;
-      padding:18px 20px
+      padding:18px 20px;
       background:#ffffff !important;            /* <- alltid vit */
       border-bottom:1px solid #e5e7eb;          /* ljus gräns */
       color:#0b1220;                            /* mörk text i headern */
@@ -30,7 +30,7 @@
     .logo{height:36px; width:auto; display:block; justify-self:center}
     @media (max-width:980px){ .logo{height:28px} }
 
-    /* Gör pills i headern ljusa för kontrast mot vit bakgrund */
+    /* pills i headern ljusa för kontrast mot vit bakgrund */
     header .pill{
       background:#ffffff;
       border:1px solid #e5e7eb;
@@ -38,9 +38,16 @@
     }
     header a.pill{ color:#0b1220; text-decoration:none }
 
-    /* 50/50 layout */
+    /* Layout-lägen */
     .wrap{display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:18px; height:calc(100vh - 78px); align-items:stretch}
     @media (max-width:980px){ .wrap{grid-template-columns:1fr; height:auto} }
+
+    /* När tidslinje-läget är aktivt använder vi 1 kolumn och två rader (50/50) */
+    body[data-view="timeline"] .wrap{
+      grid-template-columns:1fr;
+      grid-template-rows: 1fr 1fr;
+      height:calc(100vh - 78px);
+    }
 
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; min-height:0}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
@@ -65,13 +72,45 @@
     .error{background:#2a0f14; border:1px solid #5a1b25; color:#ffd2d2; padding:10px; border-radius:10px; margin-top:10px; display:none}
 
     #tooltip{position:fixed; pointer-events:none; z-index:50; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:12px; box-shadow:0 6px 20px rgba(0,0,0,.25); display:none; max-width:260px}
+
+    /* Visa/dölj kort beroende på valt läge */
+    #wheelCard,#listCard{ display:flex; }
+    #timelineCard,#stickyCard{ display:none; }
+    body[data-view="timeline"] #wheelCard,
+    body[data-view="timeline"] #listCard{ display:none; }
+    body[data-view="timeline"] #timelineCard,
+    body[data-view="timeline"] #stickyCard{ display:flex; }
+
+    /* Tidslinje-styles */
+    .timeline-stage{ display:grid; place-items:center; flex:1 1 auto; min-height:0 }
+    .timeline-legend{ margin-top:10px }
+
+    /* Klisterlappar (“lappar”) */
+    .board{ flex:1 1 auto; min-height:0; overflow:auto; }
+    .notes{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap:12px;
+      align-content:start;
+    }
+    .note{
+      background:linear-gradient(180deg, color-mix(in hsl, var(--accent2) 25%, transparent 75%), color-mix(in hsl, var(--card) 85%, black 5%));
+      color:var(--fg);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px;
+      box-shadow:0 10px 18px rgba(0,0,0,.18);
+      transform:rotate(var(--rot, 0deg));
+    }
+    .note h4{ margin:0 0 6px; font-size:15px }
+    .note small{ color:var(--muted) }
+    .note .cat{ display:inline-block; margin-top:6px; font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background:color-mix(in hsl, var(--card) 80%, black 5%); }
   </style>
 </head>
 <body>
   <header>
     <div class="header-left">
       <h1>Årshjul</h1>
-      
       <span class="pill">Tidzon: Europe/Stockholm</span>
     </div>
 
@@ -80,10 +119,18 @@
     </a>
 
     <div class="header-right">
-      
       <label class="pill" style="gap:6px; cursor:pointer">
         <input id="themeSwitch" type="checkbox" />
         <span id="themeLabel">Mörkt läge</span>
+      </label>
+
+      <!-- NYTT: Välj vy -->
+      <label class="pill" style="gap:8px">
+        Vy:
+        <select id="viewMode">
+          <option value="wheel">Hjul + lista</option>
+          <option value="timeline">Tidslinje + lappar</option>
+        </select>
       </label>
     </div>
   </header>
@@ -91,8 +138,8 @@
   <div id="tooltip" aria-hidden="true"></div>
 
   <div class="wrap">
-    <!-- Vänster halva -->
-    <section class="card">
+    <!-- ===== HJUL + LISTA (befintlig) ===== -->
+    <section class="card" id="wheelCard">
       <div class="row controls">
         <input id="search" placeholder="Sök titel/beskrivning…" />
         <select id="category"><option value="">Alla kategorier</option></select>
@@ -104,10 +151,30 @@
       <div class="error" id="err"></div>
     </section>
 
-    <!-- Höger halva -->
-    <section class="card">
+    <section class="card" id="listCard">
       <h2 style="margin:0 0 10px">Händelser</h2>
       <div class="list" id="list"></div>
+    </section>
+
+    <!-- ===== TIDSLINJE + LAPPAR (ny vy) ===== -->
+    <section class="card" id="timelineCard">
+      <div class="row controls">
+        <!-- Samma kontroller återanvänds -->
+        <input id="search_tl" placeholder="Sök titel/beskrivning…" />
+        <select id="category_tl"><option value="">Alla kategorier</option></select>
+        <select id="year_tl"></select>
+        <button id="refresh_tl">Uppdatera</button>
+      </div>
+      <div class="timeline-stage" id="timelineStage"></div>
+      <div class="legend timeline-legend" id="legend_tl"></div>
+      <div class="error" id="err_tl"></div>
+    </section>
+
+    <section class="card" id="stickyCard">
+      <h2 style="margin:0 0 10px">Lappar</h2>
+      <div class="board">
+        <div class="notes" id="notes"></div>
+      </div>
     </section>
   </div>
 
@@ -124,8 +191,8 @@ let ALL_EVENTS=[],VIEW_EVENTS=[],CATEGORY_COLORS={},CATEGORY_LANES={};
 
 function hashStr(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);}
 function colorForCategory(cat){if(!cat)return 'var(--accent)';if(CATEGORY_COLORS[cat])return CATEGORY_COLORS[cat];const h=hashStr(cat)%360;const clr=`hsl(${h} 70% 55%)`;CATEGORY_COLORS[cat]=clr;return clr;}
-function showError(msg){const b=el('#err');b.textContent=msg;b.style.display='block';}
-function clearError(){const b=el('#err');b.textContent='';b.style.display='none';}
+function showError(target,msg){const b=el(target);b.textContent=msg;b.style.display='block';}
+function clearError(target){const b=el(target);b.textContent='';b.style.display='none';}
 
 /* ====== Tema ====== */
 function initTheme(){
@@ -143,6 +210,7 @@ function initTheme(){
 /* ====== Datum ====== */
 function dayOfYear(d){const s=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.floor((d-s)/86400000)+1;}
 function angleFor(d){const y=d.getUTCFullYear();const s=new Date(Date.UTC(y,0,1));const e=new Date(Date.UTC(y+1,0,1));const total=(e-s)/86400000;const frac=dayOfYear(d)/total;return frac*Math.PI*2 - Math.PI/2;}
+function fracOfYear(d){const y=d.getUTCFullYear();const s=new Date(Date.UTC(y,0,1));const e=new Date(Date.UTC(y+1,0,1));const total=(e-s);return (d-s)/total;} // 0..1
 function yearWindow(y){return{start:new Date(Date.UTC(y,0,1)),end:new Date(Date.UTC(y,11,31,23,59,59))};}
 /* Om slut < start → tolka som nästa år (upprepa tills slut > start) */
 function normalizeRange(s,e){ if(!e) return {s,e:s}; let s2=new Date(s), e2=new Date(e); while(e2<=s2){ e2.setUTCFullYear(e2.getUTCFullYear()+1); } return {s:s2,e:e2}; }
@@ -175,8 +243,8 @@ function filterForYear(all,y){
 }
 
 /* ====== Legend ====== */
-function buildLegend(events){
-  const wrap=el('#legend'); wrap.innerHTML='';
+function buildLegend(events, targetId){
+  const wrap=el(targetId); wrap.innerHTML='';
   const cats=new Map();
   events.forEach(e=>{
     const k=e.category||'Okategoriserat';
@@ -187,7 +255,12 @@ function buildLegend(events){
     const chip=document.createElement('span'); chip.className='chip';
     chip.innerHTML=`<span class="dot" style="background:${col}"></span>${cat}`;
     chip.style.cursor='pointer';
-    chip.onclick=()=>{ const sel=el('#category'); sel.value=(sel.value===cat?'':cat); updateFilteredUI(); };
+    chip.onclick=()=>{ 
+      const view = document.body.getAttribute('data-view') || 'wheel';
+      const sel = view==='timeline' ? el('#category_tl') : el('#category');
+      sel.value=(sel.value===cat?'':cat);
+      updateFilteredUI();
+    };
     wrap.appendChild(chip);
   }
 }
@@ -263,7 +336,7 @@ function drawWheel(events){
 
   events.forEach(ev=>{
     const lane=CATEGORY_LANES[ev.category||'Okategoriserat']||0;
-    const r=BASE_ARC - lane*LANE_GAP;
+    const r=BASE_ARC - lane*10;
     const col=ev.color||colorForCategory(ev.category);
     const s=ev._segStart, e=ev._segEnd;
     const tipHtml=`<strong>${ev.title||''}</strong><br>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}`;
@@ -273,20 +346,116 @@ function drawWheel(events){
   stage.appendChild(svg);
 }
 
+/* ====== Rita tidslinje (banor per kategori) ====== */
+function drawTimeline(events){
+  const stage=el('#timelineStage'); stage.innerHTML='';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 1200 420'); // bredd x höjd
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+
+  const W=1200, H=420;
+  const topPad=40, leftPad=80, rightPad=20, bottomPad=50;
+  const lanes=Object.keys(CATEGORY_LANES).length || 1;
+  const laneH=(H-topPad-bottomPad)/lanes;
+  const barH=Math.max(8, laneH*0.36);
+
+  // månadslinjer
+  for(let m=0;m<=12;m++){
+    const x=leftPad + ( (W-leftPad-rightPad) * (m/12) );
+    const line=document.createElementNS(svg.namespaceURI,'line');
+    line.setAttribute('x1',x); line.setAttribute('y1',topPad-10);
+    line.setAttribute('x2',x); line.setAttribute('y2',H-bottomPad);
+    line.setAttribute('stroke','var(--border)');
+    svg.appendChild(line);
+
+    if(m<12){
+      const label=document.createElementNS(svg.namespaceURI,'text');
+      label.setAttribute('x', leftPad + ( (W-leftPad-rightPad) * ((m+0.5)/12) ));
+      label.setAttribute('y', topPad-16);
+      label.setAttribute('text-anchor','middle');
+      label.setAttribute('fill','var(--muted)');
+      label.textContent=MONTHS[m];
+      svg.appendChild(label);
+    }
+  }
+
+  // kategori-etiketter
+  Object.entries(CATEGORY_LANES).forEach(([cat,idx])=>{
+    const y = topPad + idx*laneH + laneH/2 + 4;
+    const t=document.createElementNS(svg.namespaceURI,'text');
+    t.setAttribute('x', 10);
+    t.setAttribute('y', y+4);
+    t.setAttribute('fill','var(--muted)');
+    t.textContent=cat;
+    svg.appendChild(t);
+
+    const base=document.createElementNS(svg.namespaceURI,'line');
+    base.setAttribute('x1',leftPad); base.setAttribute('y1',y);
+    base.setAttribute('x2',W-rightPad); base.setAttribute('y2',y);
+    base.setAttribute('stroke','var(--border)');
+    base.setAttribute('stroke-dasharray','3 4');
+    svg.appendChild(base);
+  });
+
+  const tip=el('#tooltip');
+  function showTip(evt,html){tip.innerHTML=html;tip.style.display='block';const pad=12;tip.style.left=(evt.clientX+pad)+'px';tip.style.top=(evt.clientY+pad)+'px';}
+  function hideTip(){tip.style.display='none';}
+
+  const yForLane = (cat)=>{
+    const idx=CATEGORY_LANES[cat||'Okategoriserat']||0;
+    return topPad + idx*laneH + laneH/2 - barH/2;
+  };
+  const xFor = (d) => leftPad + (W-leftPad-rightPad)*fracOfYear(d);
+
+  events.forEach(ev=>{
+    const y=yForLane(ev.category);
+    const col=ev.color||colorForCategory(ev.category);
+    const s=ev._segStart, e=ev._segEnd;
+
+    const tipHtml=`<strong>${ev.title||''}</strong><br>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}`;
+
+    if(e.getTime()===s.getTime()){
+      const cx=xFor(s), cy=y+barH/2;
+      const c=document.createElementNS(svg.namespaceURI,'circle');
+      c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',6);
+      c.setAttribute('fill',col);
+      c.style.cursor='pointer';
+      c.addEventListener('mouseenter',evm=>showTip(evm,tipHtml));
+      c.addEventListener('mousemove',evm=>showTip(evm,tipHtml));
+      c.addEventListener('mouseleave',hideTip);
+      c.addEventListener('click',()=>{ const t=document.getElementById('note-'+(ev.id||'')); if(t) t.scrollIntoView({behavior:'smooth',block:'center'}); });
+      svg.appendChild(c);
+    }else{
+      const x1=xFor(s), x2=xFor(e);
+      const r = Math.min(8, barH/2);
+      const rect=document.createElementNS(svg.namespaceURI,'rect');
+      rect.setAttribute('x',Math.min(x1,x2));
+      rect.setAttribute('y',y);
+      rect.setAttribute('width',Math.max(2,Math.abs(x2-x1)));
+      rect.setAttribute('height',barH);
+      rect.setAttribute('rx',r); rect.setAttribute('ry',r);
+      rect.setAttribute('fill',col);
+      rect.setAttribute('opacity','0.9');
+      rect.style.cursor='pointer';
+      rect.addEventListener('mouseenter',evm=>showTip(evm,tipHtml));
+      rect.addEventListener('mousemove',evm=>showTip(evm,tipHtml));
+      rect.addEventListener('mouseleave',hideTip);
+      rect.addEventListener('click',()=>{ const t=document.getElementById('note-'+(ev.id||'')); if(t) t.scrollIntoView({behavior:'smooth',block:'center'}); });
+      svg.appendChild(rect);
+    }
+  });
+
+  stage.appendChild(svg);
+}
+
 /* ====== Filterlogik ====== */
-function getFiltered(base=VIEW_EVENTS){
-  const q=el('#search').value.toLowerCase();
-  const c=el('#category').value;
+function getFiltered(base, scope='wheel'){
+  const q=(scope==='timeline'? el('#search_tl').value : el('#search').value).toLowerCase();
+  const c=(scope==='timeline'? el('#category_tl').value : el('#category').value);
   return base.filter(ev=>{
     const hay=`${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
     return (!q||hay.includes(q)) && (!c||ev.category===c);
   });
-}
-function updateFilteredUI(){
-  const filtered=getFiltered(VIEW_EVENTS);
-  buildLegend(filtered);
-  drawWheel(filtered);
-  renderList(VIEW_EVENTS);
 }
 
 /* ====== Lista ====== */
@@ -312,27 +481,126 @@ function renderList(events){
   if([...catSel.options].some(o=>o.value===current)) catSel.value=current;
 }
 
+/* ====== Lappar ====== */
+function renderNotes(events){
+  const notes=el('#notes'); notes.innerHTML='';
+  // samma filter som tidslinjens kontroller
+  const q=el('#search_tl').value.toLowerCase();
+  const c=el('#category_tl').value;
+  const filtered=events.filter(ev=>{
+    const hay=`${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
+    return (!q||hay.includes(q)) && (!c||ev.category===c);
+  }).sort((a,b)=>a.start_date.localeCompare(b.start_date));
+
+  filtered.forEach((ev,i)=>{
+    const col=ev.color||colorForCategory(ev.category);
+    const d=document.createElement('div');
+    d.className='note';
+    d.id='note-'+(ev.id||'');
+    d.style.setProperty('--rot', (i%7-3)*0.4 + 'deg'); // lite lekfull tilt
+    d.innerHTML=`
+      <h4>${ev.title||''}</h4>
+      <small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}</small>
+      ${ev.category?`<div class="cat" style="margin-top:8px"><span style="display:inline-block;width:8px;height:8px;background:${col};border-radius:999px;margin-right:6px"></span>${ev.category}</div>`:''}
+      ${ev.location?`<div style="margin-top:6px"><small>${ev.location}</small></div>`:''}
+      ${ev.description?`<p style="margin:8px 0 0">${ev.description}</p>`:''}
+      ${ev.link?`<div style="margin-top:8px"><a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a></div>`:''}
+    `;
+    notes.appendChild(d);
+  });
+
+  // fyll kategoriväljaren i tidslinjens kontroller
+  const catSel=el('#category_tl'); const current=catSel.value;
+  const cats=[...new Set(events.map(e=>e.category).filter(Boolean))].sort();
+  catSel.innerHTML='<option value="">Alla kategorier</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if([...catSel.options].some(o=>o.value===current)) catSel.value=current;
+}
+
+/* ====== Vy-uppdatering ====== */
+function updateFilteredUI(){
+  const view=document.body.getAttribute('data-view')||'wheel';
+
+  if(view==='wheel'){
+    const filtered=getFiltered(VIEW_EVENTS,'wheel');
+    buildLegend(filtered, '#legend');
+    drawWheel(filtered);
+    renderList(VIEW_EVENTS);
+  }else{
+    const filtered=getFiltered(VIEW_EVENTS,'timeline');
+    buildLegend(filtered, '#legend_tl');
+    drawTimeline(filtered);
+    renderNotes(VIEW_EVENTS);
+  }
+}
+
 /* ====== Init/Load ====== */
-async function loadAll(){clearError();ALL_EVENTS=await fetchEvents();recomputeView();}
+async function loadAll(){
+  try{
+    clearError('#err'); clearError('#err_tl');
+    ALL_EVENTS=await fetchEvents();
+    recomputeView();
+  }catch(e){
+    showError('#err', e.message);
+    showError('#err_tl', e.message);
+    console.error(e);
+  }
+}
+
 function recomputeView(){
   try{
-    clearError();
-    const y=parseInt(el('#year').value||String(new Date().getFullYear()),10);
+    clearError('#err'); clearError('#err_tl');
+    const view=document.body.getAttribute('data-view')||'wheel';
+    const y=parseInt( (view==='timeline'? el('#year_tl').value : el('#year').value) || String(new Date().getFullYear()),10);
     CATEGORY_COLORS={};
     VIEW_EVENTS=filterForYear(ALL_EVENTS,y);
+    // synka årsväljare mellan vyer
+    el('#year').value=String(y);
+    el('#year_tl').value=String(y);
     updateFilteredUI();
-  }catch(e){showError(e.message);console.error(e);}
+  }catch(e){
+    showError('#err', e.message);
+    showError('#err_tl', e.message);
+    console.error(e);
+  }
 }
-function populateYears(){const sel=el('#year');const y=new Date().getFullYear();const ys=[y-1,y,y+1,y+2];sel.innerHTML=ys.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');}
+
+function populateYears(){
+  const sel1=el('#year'), sel2=el('#year_tl');
+  const y=new Date().getFullYear();
+  const ys=[y-1,y,y+1,y+2];
+  const opts=ys.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
+  sel1.innerHTML=opts; sel2.innerHTML=opts;
+}
 
 /* ====== Start ====== */
 window.addEventListener('DOMContentLoaded',()=>{
   initTheme();
   populateYears();
-  el('#refresh').onclick=()=>loadAll();      // hämta om från Google Sheets
+
+  // default-vy
+  const savedView=localStorage.getItem('viewMode')||'wheel';
+  document.body.setAttribute('data-view', savedView);
+  el('#viewMode').value = savedView;
+
+  // knappar/inputs – båda vyerna
+  el('#refresh').onclick=()=>loadAll();
   el('#category').onchange=()=>updateFilteredUI();
   el('#search').oninput=()=>updateFilteredUI();
   el('#year').onchange=()=>recomputeView();
+
+  el('#refresh_tl').onclick=()=>loadAll();
+  el('#category_tl').onchange=()=>updateFilteredUI();
+  el('#search_tl').oninput=()=>updateFilteredUI();
+  el('#year_tl').onchange=()=>recomputeView();
+
+  // vybyte
+  el('#viewMode').onchange=(e)=>{
+    const mode=e.target.value;
+    document.body.setAttribute('data-view', mode);
+    localStorage.setItem('viewMode', mode);
+    updateFilteredUI();
+  };
+
   loadAll();
 });
 </script>
