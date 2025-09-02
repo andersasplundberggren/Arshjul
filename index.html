@@ -13,51 +13,47 @@
     html,body{height:100%}
     body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--fg)}
 
-    /* Header alltid vit */
+    /* Header alltid vit, med verktygsrad */
     header{
+      position:sticky; top:0; z-index:20;
       display:grid;
       grid-template-columns: 1fr auto 1fr;
       align-items:center;
       gap:12px;
-      padding:18px 20px;
-      background:#ffffff !important;            /* <- alltid vit */
-      border-bottom:1px solid #e5e7eb;          /* ljus gräns */
-      color:#0b1220;                            /* mörk text i headern */
-    }
-    header h1{ color:#0b1220; margin:0; font-size:clamp(20px,2.6vw,28px) }
-    .header-left,.header-right{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .header-right{ justify-content:flex-end; }
-    .logo{height:36px; width:auto; display:block; justify-self:center}
-    @media (max-width:980px){ .logo{height:28px} }
-
-    /* pills i headern ljusa för kontrast mot vit bakgrund */
-    header .pill{
-      background:#ffffff;
-      border:1px solid #e5e7eb;
+      padding:12px 16px;
+      background:#ffffff !important;
+      border-bottom:1px solid #e5e7eb;
       color:#0b1220;
     }
-    header a.pill{ color:#0b1220; text-decoration:none }
+    header h1{ color:#0b1220; margin:0; font-size:clamp(18px,2.2vw,24px) }
+    .logo{height:34px; width:auto; display:block; justify-self:center}
+    @media (max-width:980px){ .logo{height:28px} }
 
-    /* Layout-lägen */
-    .wrap{display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:18px; height:calc(100vh - 78px); align-items:stretch}
+    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; background:#fff; color:#0b1220}
+
+    /* Verktygsrad i headern (filtreringen flyttad hit) */
+    .toolbar{
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center;
+    }
+    .toolbar input,.toolbar select,.toolbar button{
+      background:#fff; color:#0b1220; border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; height:36px;
+    }
+    .toolbar button{ cursor:pointer }
+    .toolbar .group{ display:flex; gap:8px; align-items:center; }
+
+    /* Innehåll */
+    .wrap{display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:18px; height:calc(100vh - 70px); align-items:stretch}
     @media (max-width:980px){ .wrap{grid-template-columns:1fr; height:auto} }
 
-    /* När tidslinje-läget är aktivt använder vi 1 kolumn och två rader (50/50) */
+    /* Tidslinje-läge: 1 kolumn, två rader (50/50) */
     body[data-view="timeline"] .wrap{
       grid-template-columns:1fr;
       grid-template-rows: 1fr 1fr;
-      height:calc(100vh - 78px);
+      height:calc(100vh - 70px);
     }
 
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; min-height:0}
-    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    input,select,button{background:color-mix(in hsl, var(--card) 70%, black 10%); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
-    :root.light input,:root.light select,:root.light button{background:color-mix(in hsl, var(--card) 85%, white 10%)}
-    button{cursor:pointer}
-    .pill{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:color-mix(in hsl, var(--card) 80%, black 5%)}
-
-    .controls{margin-bottom:12px}
-    .stage{display:grid; place-items:center; flex:1 1 auto; min-height:0}
+    .stage,.timeline-stage{display:grid; place-items:center; flex:1 1 auto; min-height:0}
     svg{max-width:100%; height:auto}
 
     .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
@@ -73,7 +69,7 @@
 
     #tooltip{position:fixed; pointer-events:none; z-index:50; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:12px; box-shadow:0 6px 20px rgba(0,0,0,.25); display:none; max-width:260px}
 
-    /* Visa/dölj kort beroende på valt läge */
+    /* Visa/dölj kort beroende på läge */
     #wheelCard,#listCard{ display:flex; }
     #timelineCard,#stickyCard{ display:none; }
     body[data-view="timeline"] #wheelCard,
@@ -81,11 +77,7 @@
     body[data-view="timeline"] #timelineCard,
     body[data-view="timeline"] #stickyCard{ display:flex; }
 
-    /* Tidslinje-styles */
-    .timeline-stage{ display:grid; place-items:center; flex:1 1 auto; min-height:0 }
-    .timeline-legend{ margin-top:10px }
-
-    /* Klisterlappar (“lappar”) */
+    /* Lappar */
     .board{ flex:1 1 auto; min-height:0; overflow:auto; }
     .notes{
       display:grid;
@@ -118,19 +110,24 @@
       <img class="logo" src="https://karlskoga.se/images/18.17cf90041722ce1749b5e/1640015633047/Karlskoga_liggande.png" alt="Karlskoga kommun">
     </a>
 
-    <div class="header-right">
-      <label class="pill" style="gap:6px; cursor:pointer">
-        <input id="themeSwitch" type="checkbox" />
-        <span id="themeLabel">Mörkt läge</span>
-      </label>
+    <!-- Hela filtreringen + vy + tema ligger här -->
+    <div class="toolbar">
+      <input id="search" placeholder="Sök titel/beskrivning…" />
+      <select id="category"><option value="">Alla kategorier</option></select>
+      <select id="year"></select>
+      <button id="refresh">Uppdatera</button>
 
-      <!-- NYTT: Välj vy -->
-      <label class="pill" style="gap:8px">
+      <div class="group pill" style="gap:8px">
         Vy:
-        <select id="viewMode">
+        <select id="viewMode" style="border:0; background:transparent; height:auto; padding:0">
           <option value="wheel">Hjul + lista</option>
           <option value="timeline">Tidslinje + lappar</option>
         </select>
+      </div>
+
+      <label class="pill" style="gap:6px; cursor:pointer">
+        <input id="themeSwitch" type="checkbox" />
+        <span id="themeLabel">Mörkt läge</span>
       </label>
     </div>
   </header>
@@ -138,14 +135,8 @@
   <div id="tooltip" aria-hidden="true"></div>
 
   <div class="wrap">
-    <!-- ===== HJUL + LISTA (befintlig) ===== -->
+    <!-- ===== HJUL + LISTA ===== -->
     <section class="card" id="wheelCard">
-      <div class="row controls">
-        <input id="search" placeholder="Sök titel/beskrivning…" />
-        <select id="category"><option value="">Alla kategorier</option></select>
-        <select id="year"></select>
-        <button id="refresh">Uppdatera</button>
-      </div>
       <div class="stage" id="stage"></div>
       <div class="legend" id="legend"></div>
       <div class="error" id="err"></div>
@@ -156,17 +147,10 @@
       <div class="list" id="list"></div>
     </section>
 
-    <!-- ===== TIDSLINJE + LAPPAR (ny vy) ===== -->
+    <!-- ===== TIDSLINJE + LAPPAR ===== -->
     <section class="card" id="timelineCard">
-      <div class="row controls">
-        <!-- Samma kontroller återanvänds -->
-        <input id="search_tl" placeholder="Sök titel/beskrivning…" />
-        <select id="category_tl"><option value="">Alla kategorier</option></select>
-        <select id="year_tl"></select>
-        <button id="refresh_tl">Uppdatera</button>
-      </div>
       <div class="timeline-stage" id="timelineStage"></div>
-      <div class="legend timeline-legend" id="legend_tl"></div>
+      <div class="legend" id="legend_tl"></div>
       <div class="error" id="err_tl"></div>
     </section>
 
@@ -210,21 +194,19 @@ function initTheme(){
 /* ====== Datum ====== */
 function dayOfYear(d){const s=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.floor((d-s)/86400000)+1;}
 function angleFor(d){const y=d.getUTCFullYear();const s=new Date(Date.UTC(y,0,1));const e=new Date(Date.UTC(y+1,0,1));const total=(e-s)/86400000;const frac=dayOfYear(d)/total;return frac*Math.PI*2 - Math.PI/2;}
-function fracOfYear(d){const y=d.getUTCFullYear();const s=new Date(Date.UTC(y,0,1));const e=new Date(Date.UTC(y+1,0,1));const total=(e-s);return (d-s)/total;} // 0..1
+function fracOfYear(d){const y=d.getUTCFullYear();const s=new Date(Date.UTC(y,0,1));const e=new Date(Date.UTC(y+1,0,1));const total=(e-s);return (d-s)/total;}
 function yearWindow(y){return{start:new Date(Date.UTC(y,0,1)),end:new Date(Date.UTC(y,11,31,23,59,59))};}
-/* Om slut < start → tolka som nästa år (upprepa tills slut > start) */
 function normalizeRange(s,e){ if(!e) return {s,e:s}; let s2=new Date(s), e2=new Date(e); while(e2<=s2){ e2.setUTCFullYear(e2.getUTCFullYear()+1); } return {s:s2,e:e2}; }
 
-/* ====== Hämta alla events ====== */
+/* ====== Hämta data ====== */
 async function fetchEvents(){
   const base=localStorage.getItem('apiUrl')||API_BASE;
-  const url=base;
-  const res=await fetch(url,{headers:{'Accept':'application/json'}});
+  const res=await fetch(base,{headers:{'Accept':'application/json'}});
   if(!res.ok) throw new Error('API fel ('+res.status+')');
   const txt=await res.text(); try{return JSON.parse(txt);}catch{throw new Error('API-svar var inte JSON');}
 }
 
-/* ====== Filtrera till valt år + lanes ====== */
+/* ====== Årsfilter + lanes ====== */
 function filterForYear(all,y){
   const {start,end}=yearWindow(y);
   const arr=all.map(ev=>{
@@ -256,8 +238,7 @@ function buildLegend(events, targetId){
     chip.innerHTML=`<span class="dot" style="background:${col}"></span>${cat}`;
     chip.style.cursor='pointer';
     chip.onclick=()=>{ 
-      const view = document.body.getAttribute('data-view') || 'wheel';
-      const sel = view==='timeline' ? el('#category_tl') : el('#category');
+      const sel = el('#category');
       sel.value=(sel.value===cat?'':cat);
       updateFilteredUI();
     };
@@ -265,13 +246,13 @@ function buildLegend(events, targetId){
   }
 }
 
-/* ====== Rita hjul (banor per kategori) ====== */
+/* ====== Hjul ====== */
 function drawWheel(events){
   const stage=el('#stage'); stage.innerHTML='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','-240 -240 480 480');
 
-  const R=200, BASE_ARC=190, LANE_GAP=10;
+  const R=200, BASE_ARC=190;
 
   const ring=document.createElementNS(svg.namespaceURI,'circle');
   ring.setAttribute('r',R); ring.setAttribute('fill','none');
@@ -346,11 +327,11 @@ function drawWheel(events){
   stage.appendChild(svg);
 }
 
-/* ====== Rita tidslinje (banor per kategori) ====== */
+/* ====== Tidslinje ====== */
 function drawTimeline(events){
   const stage=el('#timelineStage'); stage.innerHTML='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('viewBox','0 0 1200 420'); // bredd x höjd
+  svg.setAttribute('viewBox','0 0 1200 420');
   svg.setAttribute('preserveAspectRatio','xMidYMid meet');
 
   const W=1200, H=420;
@@ -359,7 +340,6 @@ function drawTimeline(events){
   const laneH=(H-topPad-bottomPad)/lanes;
   const barH=Math.max(8, laneH*0.36);
 
-  // månadslinjer
   for(let m=0;m<=12;m++){
     const x=leftPad + ( (W-leftPad-rightPad) * (m/12) );
     const line=document.createElementNS(svg.namespaceURI,'line');
@@ -379,7 +359,6 @@ function drawTimeline(events){
     }
   }
 
-  // kategori-etiketter
   Object.entries(CATEGORY_LANES).forEach(([cat,idx])=>{
     const y = topPad + idx*laneH + laneH/2 + 4;
     const t=document.createElementNS(svg.namespaceURI,'text');
@@ -411,7 +390,6 @@ function drawTimeline(events){
     const y=yForLane(ev.category);
     const col=ev.color||colorForCategory(ev.category);
     const s=ev._segStart, e=ev._segEnd;
-
     const tipHtml=`<strong>${ev.title||''}</strong><br>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}${ev.category?` • ${ev.category}`:''}`;
 
     if(e.getTime()===s.getTime()){
@@ -448,25 +426,20 @@ function drawTimeline(events){
   stage.appendChild(svg);
 }
 
-/* ====== Filterlogik ====== */
-function getFiltered(base, scope='wheel'){
-  const q=(scope==='timeline'? el('#search_tl').value : el('#search').value).toLowerCase();
-  const c=(scope==='timeline'? el('#category_tl').value : el('#category').value);
+/* ====== Filtrering ====== */
+function getFiltered(base){
+  const q=el('#search').value.toLowerCase();
+  const c=el('#category').value;
   return base.filter(ev=>{
     const hay=`${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
     return (!q||hay.includes(q)) && (!c||ev.category===c);
   });
 }
 
-/* ====== Lista ====== */
+/* ====== Listan (hjul-läget) ====== */
 function renderList(events){
-  const q=el('#search').value.toLowerCase();
-  const c=el('#category').value;
   const list=el('#list'); list.innerHTML='';
-  const filtered=events.filter(ev=>{
-    const hay=`${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
-    return (!q||hay.includes(q)) && (!c||ev.category===c);
-  }).sort((a,b)=>a.start_date.localeCompare(b.start_date));
+  const filtered=getFiltered(events).sort((a,b)=>a.start_date.localeCompare(b.start_date));
   filtered.forEach(ev=>{
     const col=ev.color||colorForCategory(ev.category);
     const div=document.createElement('div'); div.className='item'; div.id='item-'+(ev.id||'');
@@ -475,29 +448,24 @@ function renderList(events){
     <div class="sp"></div><p style="margin:0 0 8px">${ev.description||''}</p>${ev.link?`<a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a>`:''}`;
     list.appendChild(div);
   });
+  // fyll kategoriväljaren
   const catSel=el('#category'); const current=catSel.value;
   const cats=[...new Set(events.map(e=>e.category).filter(Boolean))].sort();
   catSel.innerHTML='<option value="">Alla kategorier</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
   if([...catSel.options].some(o=>o.value===current)) catSel.value=current;
 }
 
-/* ====== Lappar ====== */
+/* ====== Lappar (tidslinje-läget) ====== */
 function renderNotes(events){
   const notes=el('#notes'); notes.innerHTML='';
-  // samma filter som tidslinjens kontroller
-  const q=el('#search_tl').value.toLowerCase();
-  const c=el('#category_tl').value;
-  const filtered=events.filter(ev=>{
-    const hay=`${ev.title} ${ev.description||''} ${ev.category||''}`.toLowerCase();
-    return (!q||hay.includes(q)) && (!c||ev.category===c);
-  }).sort((a,b)=>a.start_date.localeCompare(b.start_date));
+  const filtered=getFiltered(events).sort((a,b)=>a.start_date.localeCompare(b.start_date));
 
   filtered.forEach((ev,i)=>{
     const col=ev.color||colorForCategory(ev.category);
     const d=document.createElement('div');
     d.className='note';
     d.id='note-'+(ev.id||'');
-    d.style.setProperty('--rot', (i%7-3)*0.4 + 'deg'); // lite lekfull tilt
+    d.style.setProperty('--rot', (i%7-3)*0.4 + 'deg');
     d.innerHTML=`
       <h4>${ev.title||''}</h4>
       <small>${ev.start_date}${ev.end_date?` – ${ev.end_date}`:''}</small>
@@ -509,8 +477,8 @@ function renderNotes(events){
     notes.appendChild(d);
   });
 
-  // fyll kategoriväljaren i tidslinjens kontroller
-  const catSel=el('#category_tl'); const current=catSel.value;
+  // säkerställ att kategori-listan är fylld även om listvyn inte ritas
+  const catSel=el('#category'); const current=catSel.value;
   const cats=[...new Set(events.map(e=>e.category).filter(Boolean))].sort();
   catSel.innerHTML='<option value="">Alla kategorier</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
   if([...catSel.options].some(o=>o.value===current)) catSel.value=current;
@@ -519,14 +487,13 @@ function renderNotes(events){
 /* ====== Vy-uppdatering ====== */
 function updateFilteredUI(){
   const view=document.body.getAttribute('data-view')||'wheel';
+  const filtered=getFiltered(VIEW_EVENTS);
 
   if(view==='wheel'){
-    const filtered=getFiltered(VIEW_EVENTS,'wheel');
     buildLegend(filtered, '#legend');
     drawWheel(filtered);
     renderList(VIEW_EVENTS);
   }else{
-    const filtered=getFiltered(VIEW_EVENTS,'timeline');
     buildLegend(filtered, '#legend_tl');
     drawTimeline(filtered);
     renderNotes(VIEW_EVENTS);
@@ -549,13 +516,9 @@ async function loadAll(){
 function recomputeView(){
   try{
     clearError('#err'); clearError('#err_tl');
-    const view=document.body.getAttribute('data-view')||'wheel';
-    const y=parseInt( (view==='timeline'? el('#year_tl').value : el('#year').value) || String(new Date().getFullYear()),10);
+    const y=parseInt(el('#year').value || String(new Date().getFullYear()),10);
     CATEGORY_COLORS={};
     VIEW_EVENTS=filterForYear(ALL_EVENTS,y);
-    // synka årsväljare mellan vyer
-    el('#year').value=String(y);
-    el('#year_tl').value=String(y);
     updateFilteredUI();
   }catch(e){
     showError('#err', e.message);
@@ -565,11 +528,10 @@ function recomputeView(){
 }
 
 function populateYears(){
-  const sel1=el('#year'), sel2=el('#year_tl');
+  const sel=el('#year');
   const y=new Date().getFullYear();
   const ys=[y-1,y,y+1,y+2];
-  const opts=ys.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
-  sel1.innerHTML=opts; sel2.innerHTML=opts;
+  sel.innerHTML=ys.map(v=>`<option ${v===y?'selected':''} value="${v}">${v}</option>`).join('');
 }
 
 /* ====== Start ====== */
@@ -577,23 +539,17 @@ window.addEventListener('DOMContentLoaded',()=>{
   initTheme();
   populateYears();
 
-  // default-vy
+  // init vy
   const savedView=localStorage.getItem('viewMode')||'wheel';
   document.body.setAttribute('data-view', savedView);
   el('#viewMode').value = savedView;
 
-  // knappar/inputs – båda vyerna
+  // events
   el('#refresh').onclick=()=>loadAll();
   el('#category').onchange=()=>updateFilteredUI();
   el('#search').oninput=()=>updateFilteredUI();
   el('#year').onchange=()=>recomputeView();
 
-  el('#refresh_tl').onclick=()=>loadAll();
-  el('#category_tl').onchange=()=>updateFilteredUI();
-  el('#search_tl').oninput=()=>updateFilteredUI();
-  el('#year_tl').onchange=()=>recomputeView();
-
-  // vybyte
   el('#viewMode').onchange=(e)=>{
     const mode=e.target.value;
     document.body.setAttribute('data-view', mode);
