@@ -44,7 +44,7 @@
     /* Filter-knapp visas bara på små skärmar */
     .btn-filter{ display:none; }
     @media (max-width:820px){
-      .toolbar > :not(.btn-filter):not(.group):not(.pill){ display:none; } /* dölj huvudkontrollerna på mobil */
+      .toolbar > :not(.btn-filter):not(.group):not(.pill){ display:none; }
       .btn-filter{ display:inline-flex; align-items:center; gap:6px; }
     }
 
@@ -91,22 +91,12 @@
     svg{max-width:100%; height:auto}
 
     .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
-    .legend .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px}
+    .legend .chip{
+      display:inline-flex; align-items:center; gap:6px; padding:6px 10px;
+      border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px;
+      /* passiv legend: ingen pointer */
+    }
     .legend .dot{width:10px; height:10px; border-radius:999px}
-
-    /* Månadschips-bar under tidslinjen */
-    .monthbar{
-      display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;
-    }
-    .monthbar .mchip{
-      cursor:pointer; font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border);
-      background:color-mix(in hsl, var(--card) 82%, black 4%); color:var(--fg);
-      user-select:none;
-    }
-    .monthbar .mchip.active{
-      outline:2px solid var(--accent); outline-offset:1px;
-      border-color:var(--accent);
-    }
 
     .list{display:flex; flex-direction:column; gap:10px; overflow:auto; flex:1 1 auto; min-height:0}
     .item{background:color-mix(in hsl, var(--card) 80%, black 5%); border:1px solid var(--border); border-radius:12px; padding:10px}
@@ -241,8 +231,6 @@
     <section class="card" id="timelineCard">
       <div class="timeline-stage" id="timelineStage"></div>
       <div class="legend" id="legend_tl"></div>
-      <!-- NYTT: Månadschips under tidslinjen -->
-      <div class="monthbar" id="monthbar"></div>
       <div class="error" id="err_tl"></div>
     </section>
 
@@ -264,7 +252,6 @@ const el=s=>document.querySelector(s);
 const MONTHS=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 
 let ALL_EVENTS=[],VIEW_EVENTS=[],CATEGORY_COLORS={},CATEGORY_LANES={};
-let TL_HILIGHT_MONTH=null; // 0..11 eller null
 
 function hashStr(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);}
 function colorForCategory(cat){if(!cat)return 'var(--accent)';if(CATEGORY_COLORS[cat])return CATEGORY_COLORS[cat];const h=hashStr(cat)%360;const clr=`hsl(${h} 70% 55%)`;CATEGORY_COLORS[cat]=clr;return clr;}
@@ -277,7 +264,7 @@ function setTheme(isLight){
   root.classList.toggle('light',isLight);
   el('#themeSwitch').checked=isLight;
   el('#themeLabel').textContent=isLight?'Ljust läge':'Mörkt läge';
-  // spegla i mobilpanelen
+  // mobil
   el('#themeSwitch_m').checked=isLight;
   el('#themeLabel_m').textContent=isLight?'Ljust läge':'Mörkt läge';
   localStorage.setItem('theme2',isLight?'light':'dark');
@@ -322,7 +309,7 @@ function filterForYear(all,y){
   return arr;
 }
 
-/* ====== Legend ====== */
+/* ====== Legend (passiv) ====== */
 function buildLegend(events, targetId){
   const wrap=el(targetId); wrap.innerHTML='';
   const cats=new Map();
@@ -334,14 +321,6 @@ function buildLegend(events, targetId){
   for(const [cat,col] of cats.entries()){
     const chip=document.createElement('span'); chip.className='chip';
     chip.innerHTML=`<span class="dot" style="background:${col}"></span>${cat}`;
-    chip.style.cursor='pointer';
-    chip.onclick=()=>{ 
-      const sel = el('#category');
-      sel.value=(sel.value===cat?'':cat);
-      updateFilteredUI();
-      // spegla till mobil-dropdown
-      syncToMobile();
-    };
     wrap.appendChild(chip);
   }
 }
@@ -427,7 +406,7 @@ function drawWheel(events){
   stage.appendChild(svg);
 }
 
-/* ====== Tidslinje ====== */
+/* ====== Tidslinje (med månadsnamn i SVG) ====== */
 function drawTimeline(events){
   const stage=el('#timelineStage'); stage.innerHTML='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -440,19 +419,7 @@ function drawTimeline(events){
   const laneH=(H-topPad-bottomPad)/lanes;
   const barH=Math.max(8, laneH*0.36);
 
-  // Månadstoning om vald
-  if(TL_HILIGHT_MONTH!==null){
-    const x1 = leftPad + (W-leftPad-rightPad)*(TL_HILIGHT_MONTH/12);
-    const x2 = leftPad + (W-leftPad-rightPad)*((TL_HILIGHT_MONTH+1)/12);
-    const rectHL=document.createElementNS(svg.namespaceURI,'rect');
-    rectHL.setAttribute('x',x1); rectHL.setAttribute('y',topPad-20);
-    rectHL.setAttribute('width',Math.max(4, x2-x1)); rectHL.setAttribute('height',H-topPad-bottomPad+28);
-    rectHL.setAttribute('fill','var(--accent)');
-    rectHL.setAttribute('opacity','0.08');
-    svg.appendChild(rectHL);
-  }
-
-  // Månadslinjer + etiketter (övre)
+  // Månadslinjer + etiketter (inne i tidslinjen: både upptill och nedtill för tydlighet)
   for(let m=0;m<=12;m++){
     const x=leftPad + ( (W-leftPad-rightPad) * (m/12) );
     const line=document.createElementNS(svg.namespaceURI,'line');
@@ -462,13 +429,23 @@ function drawTimeline(events){
     svg.appendChild(line);
 
     if(m<12){
-      const label=document.createElementNS(svg.namespaceURI,'text');
-      label.setAttribute('x', leftPad + ( (W-leftPad-rightPad) * ((m+0.5)/12) ));
-      label.setAttribute('y', topPad-18);
-      label.setAttribute('text-anchor','middle');
-      label.setAttribute('fill','var(--muted)');
-      label.textContent=MONTHS[m];
-      svg.appendChild(label);
+      // övre etikett
+      const labelTop=document.createElementNS(svg.namespaceURI,'text');
+      labelTop.setAttribute('x', leftPad + ( (W-leftPad-rightPad) * ((m+0.5)/12) ));
+      labelTop.setAttribute('y', topPad-18);
+      labelTop.setAttribute('text-anchor','middle');
+      labelTop.setAttribute('fill','var(--muted)');
+      labelTop.textContent=MONTHS[m];
+      svg.appendChild(labelTop);
+
+      // nedre etikett
+      const labelBot=document.createElementNS(svg.namespaceURI,'text');
+      labelBot.setAttribute('x', leftPad + ( (W-leftPad-rightPad) * ((m+0.5)/12) ));
+      labelBot.setAttribute('y', H-bottomPad+24);
+      labelBot.setAttribute('text-anchor','middle');
+      labelBot.setAttribute('fill','var(--muted)');
+      labelBot.textContent=MONTHS[m];
+      svg.appendChild(labelBot);
     }
   }
 
@@ -569,7 +546,6 @@ function renderList(events){
   catSel.innerHTML='<option value="">Alla kategorier</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
   if([...catSel.options].some(o=>o.value===current)) catSel.value=current;
 
-  // spegla till mobil
   syncToMobile();
 }
 
@@ -595,7 +571,7 @@ function renderNotes(events){
     notes.appendChild(d);
   });
 
-  // också synka mobil-kategori
+  // synka kategori-alternativ och mobil
   const catSel=el('#category'); const current=catSel.value;
   const cats=[...new Set(events.map(e=>e.category).filter(Boolean))].sort();
   catSel.innerHTML='<option value="">Alla kategorier</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -604,55 +580,29 @@ function renderNotes(events){
   syncToMobile();
 }
 
-/* ====== Månadschips under tidslinjen ====== */
-function buildMonthbar(){
-  const bar=el('#monthbar'); bar.innerHTML='';
-  MONTHS.forEach((m,idx)=>{
-    const chip=document.createElement('span');
-    chip.className='mchip'+(TL_HILIGHT_MONTH===idx?' active':'');
-    chip.textContent=m;
-    chip.onclick=()=>{
-      TL_HILIGHT_MONTH = (TL_HILIGHT_MONTH===idx ? null : idx);
-      updateFilteredUI();
-      // uppdatera aktiv klass
-      [...bar.children].forEach((c,i)=>c.classList.toggle('active', TL_HILIGHT_MONTH===i));
-    };
-    bar.appendChild(chip);
-  });
-}
-
 /* ====== Vy-uppdatering ====== */
 function updateFilteredUI(){
   const view=document.body.getAttribute('data-view')||'wheel';
   const filtered=getFiltered(VIEW_EVENTS);
 
   if(view==='wheel'){
-    buildLegend(filtered, '#legend');
+    buildLegend(filtered, '#legend');   // passiv legend
     drawWheel(filtered);
     renderList(VIEW_EVENTS);
   }else{
-    buildLegend(filtered, '#legend_tl');
-    drawTimeline(filtered);
-    buildMonthbar();
+    buildLegend(filtered, '#legend_tl'); // passiv legend
+    drawTimeline(filtered);              // månader i själva SVG:n
     renderNotes(VIEW_EVENTS);
   }
 }
 
 /* ====== Off-canvas: spegling utan logikändring ====== */
 function syncToMobile(){
-  // spegla värden från huvudkontrollerna -> mobil
   el('#search_m').value = el('#search').value;
-  // fyll kategori-listan i mobilpanelet
   const catSel = el('#category'), catMob = el('#category_m');
-  catMob.innerHTML = catSel.innerHTML;
-  catMob.value = catSel.value;
-
-  // år
+  catMob.innerHTML = catSel.innerHTML; catMob.value = catSel.value;
   const yrSel = el('#year'), yrMob = el('#year_m');
-  yrMob.innerHTML = yrSel.innerHTML;
-  yrMob.value = yrSel.value;
-
-  // vy
+  yrMob.innerHTML = yrSel.innerHTML; yrMob.value = yrSel.value;
   el('#viewMode_m').value = el('#viewMode').value;
 }
 function applyMobileToMain(){
@@ -660,7 +610,7 @@ function applyMobileToMain(){
   el('#category').value = el('#category_m').value;
   if(el('#year').value !== el('#year_m').value){
     el('#year').value = el('#year_m').value;
-    recomputeView(); // år ändrat → räkna om
+    recomputeView();
   }else{
     updateFilteredUI();
   }
