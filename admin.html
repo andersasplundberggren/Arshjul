@@ -12,14 +12,13 @@
     body{margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
     header{display:flex; gap:12px; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border)}
     h1{margin:0; font-size:20px}
-    /* Logo-stil */
     .logo{height:32px; width:auto; display:block}
     @media (max-width:980px){ .logo{height:26px} }
 
-    .wrap{max-width:960px; margin:20px auto; padding:0 16px; display:grid; gap:16px}
+    .wrap{max-width:800px; margin:20px auto; padding:0 16px; display:grid; gap:16px}
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px}
     .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
-    .row3{display:grid; grid-template-columns:1fr 1fR 1fr; gap:12px}
+    .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px}
     input,textarea,button,select{background:color-mix(in hsl, var(--card) 70%, black 10%); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
     :root.light input,:root.light textarea,:root.light button,:root.light select{ background:color-mix(in hsl, var(--card) 85%, white 10%) }
     button{cursor:pointer}
@@ -30,13 +29,12 @@
     .err{color:#ff7a7a}
     .chips{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
     .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px; cursor:pointer}
-    .current-sheet{background:var(--accent); color:white; border-color:var(--accent)}
   </style>
 </head>
 <body>
   <header>
     <img class="logo" src="https://karlskoga.se/images/18.17cf90041722ce1749b5e/1640015633047/Karlskoga_liggande.png" alt="Karlskoga kommun">
-    <h1>Årshjul – Admin</h1>
+    <h1>Årshjul – Socialförvaltningen</h1>
     <div style="margin-left:auto; display:flex; gap:8px; align-items:center">
       <a href="./" class="pill">← Till årshjulet</a>
       <label class="pill" style="gap:6px; cursor:pointer">
@@ -48,44 +46,14 @@
 
   <div class="wrap">
     <section class="card">
-      <h2 style="margin:0 0 8px">Inställningar</h2>
-      <div class="row">
-        <input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" />
-        <input id="apiKey" placeholder="ADMIN_TOKEN" />
-      </div>
-      <div class="hint">URL & token sparas i webbläsaren (används även av publika sidan).</div>
-      <div style="margin-top:10px; display:flex; gap:10px; align-items:center">
-        <button id="test">Testa anslutning</button>
-        <span id="status"></span>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2 style="margin:0 0 8px">Välj blad i Google Sheets</h2>
-      <div class="hint">Välj vilket blad du vill arbeta med. Klicka för att växla.</div>
-      <div id="sheetChips" class="chips">
-        <span class="chip" data-sheet="Events">Events (standard)</span>
-        <span class="chip" data-sheet="Soc">Socialförvaltningen</span>
-        <span class="chip" data-sheet="">Lägg till nytt...</span>
-      </div>
-      <div class="row" style="margin-top:10px; display:none" id="customSheetRow">
-        <input id="customSheet" placeholder="Namn på nytt blad" />
-        <button id="addSheet">Lägg till</button>
-      </div>
-      <div style="margin-top:10px">
-        <strong>Aktivt blad:</strong> <span id="currentSheet">Events</span>
-      </div>
-    </section>
-
-    <section class="card">
       <h2 style="margin:0 0 8px">Kategorier</h2>
-      <div class="hint">Klicka för att välja en kategori från det aktiva bladet, eller skriv en ny i fältet nedan.</div>
+      <div class="hint">Klicka för att välja en kategori, eller skriv en ny i fältet nedan.</div>
       <div id="catChips" class="chips"></div>
     </section>
 
     <section class="card">
       <h2 style="margin:0 0 8px">Lägg till händelse</h2>
-      <div class="row" style="grid-template-columns:2fr 2fr 1fr">
+      <div class="row" style="grid-template-columns:2fr 1fr">
         <input id="title" placeholder="Titel" />
         <input id="category" list="catlist" placeholder="Kategori (välj eller skriv ny)" />
         <datalist id="catlist"></datalist>
@@ -99,13 +67,9 @@
         <input id="location" placeholder="Plats (valfritt)" />
         <input id="link" placeholder="Länk (valfritt)" />
       </div>
-      <div class="row" style="margin-top:10px">
-        <input id="id" placeholder="id (tomt = genereras)" />
-        <input disabled value="Beskrivning:" />
-      </div>
-      <textarea id="desc" rows="4" placeholder="Beskrivning" style="margin-top:10px"></textarea>
+      <textarea id="desc" rows="4" placeholder="Beskrivning (valfritt)" style="margin-top:10px"></textarea>
       <div style="margin-top:10px; display:flex; gap:10px">
-        <button id="save">Spara till <span id="saveTarget">Events</span></button>
+        <button id="save">Spara händelse</button>
         <button id="clear">Töm formulär</button>
       </div>
       <div id="msg" class="hint" style="margin-top:10px"></div>
@@ -113,11 +77,13 @@
   </div>
 
 <script>
-const DEFAULT_API_BASE='https://script.google.com/macros/s/AKfycbzEoi4hp9OM74MielnvENqA7NdQ8w1XQcsSKqXnfYEYD0vXdYZgOOFyjBC5emlNgVfm/exec';
-const el=s=>document.querySelector(s);
+// ====== KONFIGURERA DESSA VÄRDEN ======
+const API_BASE = 'https://script.google.com/macros/s/AKfycbzEoi4hp9OM74MielnvENqA7NdQ8w1XQcsSKqXnfYEYD0vXdYZgOOFyjBC5emlNgVfm/exec';
+const TARGET_SHEET = 'Events';  // ÄNDRA DETTA för att styra vilket blad som används
+const ADMIN_TOKEN = 'Password';  // ÄNDRA DETTA till din faktiska token
+// ==========================================
 
-let currentSheet = 'Events'; // Standardblad
-let availableSheets = ['Events', 'Soc']; // Kända blad
+const el=s=>document.querySelector(s);
 
 function initTheme(){
   const saved=localStorage.getItem('theme2')||'dark';
@@ -127,84 +93,9 @@ function initTheme(){
   sw.onchange=()=>{const on=sw.checked; root.classList.toggle('light',on); localStorage.setItem('theme2',on?'light':'dark'); lbl.textContent=on?'Ljust':'Mörkt';};
 }
 
-function getApi(){ return (el('#apiUrl').value.trim() || localStorage.getItem('apiUrl') || DEFAULT_API_BASE); }
-function setApi(url){ el('#apiUrl').value=url; localStorage.setItem('apiUrl',url); }
-function setToken(tok){ localStorage.setItem('apiKey',tok); }
-
-function updateCurrentSheet(sheetName) {
-  currentSheet = sheetName;
-  el('#currentSheet').textContent = sheetName;
-  el('#saveTarget').textContent = sheetName;
-  
-  // Uppdatera visuella indikatorer
-  document.querySelectorAll('#sheetChips .chip').forEach(chip => {
-    chip.classList.remove('current-sheet');
-    if (chip.dataset.sheet === sheetName) {
-      chip.classList.add('current-sheet');
-    }
-  });
-  
-  // Ladda kategorier för det nya bladet
-  loadCategories();
-}
-
-function setupSheetSelector() {
-  const container = el('#sheetChips');
-  
-  // Rensa befintliga chips
-  container.innerHTML = '';
-  
-  // Lägg till chips för kända blad
-  availableSheets.forEach(sheet => {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    if (sheet === currentSheet) chip.classList.add('current-sheet');
-    chip.textContent = sheet === 'Events' ? 'Events (standard)' : 
-                      sheet === 'Soc' ? 'Socialförvaltningen' : sheet;
-    chip.dataset.sheet = sheet;
-    chip.onclick = () => updateCurrentSheet(sheet);
-    container.appendChild(chip);
-  });
-  
-  // Lägg till "nytt blad"-chip
-  const addChip = document.createElement('span');
-  addChip.className = 'chip';
-  addChip.textContent = 'Lägg till nytt...';
-  addChip.onclick = () => {
-    const customRow = el('#customSheetRow');
-    customRow.style.display = customRow.style.display === 'none' ? 'grid' : 'none';
-  };
-  container.appendChild(addChip);
-}
-
-function addCustomSheet() {
-  const newSheet = el('#customSheet').value.trim();
-  if (!newSheet) return;
-  
-  if (!availableSheets.includes(newSheet)) {
-    availableSheets.push(newSheet);
-    setupSheetSelector();
-  }
-  
-  updateCurrentSheet(newSheet);
-  el('#customSheet').value = '';
-  el('#customSheetRow').style.display = 'none';
-}
-
-async function testConnection(){
-  const base=getApi(); el('#status').textContent='Testar…';
-  try{
-    const url = base + (base.includes('?') ? '&' : '?') + `sheet=${currentSheet}`;
-    const res=await fetch(url,{headers:{'Accept':'application/json'}});
-    if(!res.ok) throw new Error(String(res.status));
-    await res.json(); el('#status').innerHTML='<span class="ok">OK – API svarade för blad "'+currentSheet+'"</span>';
-  }catch(e){ el('#status').innerHTML='<span class="err">Fel – kontrollera URL/åtkomst</span>'; }
-}
-
 async function loadCategories(){
-  const base=getApi();
   try{
-    const url = base + (base.includes('?') ? '&' : '?') + `sheet=${currentSheet}`;
+    const url = API_BASE + (API_BASE.includes('?') ? '&' : '?') + `sheet=${TARGET_SHEET}`;
     const res=await fetch(url,{headers:{'Accept':'application/json'}});
     if(!res.ok) throw new Error();
     const data=await res.json();
@@ -217,7 +108,9 @@ async function loadCategories(){
       span.onclick=()=>{ el('#category').value=c; };
       chips.appendChild(span);
     });
-  }catch{}
+  }catch(e){
+    console.error('Kunde inte ladda kategorier:', e);
+  }
 }
 
 function fmtDate(d){const y=d.getUTCFullYear();const m=String(d.getUTCMonth()+1).padStart(2,'0');const da=String(d.getUTCDate()).padStart(2,'0');return `${y}-${m}-${da}`;}
@@ -230,8 +123,7 @@ function normalizeEnd(startStr,endStr){
 }
 
 async function saveEvent(){
-  const base=getApi(); const key=el('#apiKey').value.trim(); const msg=el('#msg');
-  if(!base||!key){ msg.innerHTML='<span class="err">Fyll i URL och ADMIN_TOKEN</span>'; return; }
+  const msg=el('#msg');
 
   let start=el('#start').value.trim();
   let end=(el('#end').value||'').trim();
@@ -241,9 +133,9 @@ async function saveEvent(){
 
   const payload={
     action:'upsert',
-    token:key,
-    sheet:currentSheet, // Lägg till sheet-parameter
-    id:(el('#id').value.trim() || Math.random().toString(36).slice(2,10)),
+    token:ADMIN_TOKEN,
+    sheet:TARGET_SHEET,
+    id:Math.random().toString(36).slice(2,10),
     title:el('#title').value.trim(),
     description:el('#desc').value.trim(),
     start_date:start,
@@ -254,17 +146,30 @@ async function saveEvent(){
     location:el('#location').value.trim() || ''
   };
 
-  if(!payload.title || !payload.start_date){ msg.innerHTML='<span class="err">Titel och startdatum krävs</span>'; return; }
+  if(!payload.title || !payload.start_date){ 
+    msg.innerHTML='<span class="err">Titel och startdatum krävs</span>'; 
+    return; 
+  }
 
-  setApi(base); setToken(key);
+  msg.innerHTML='Sparar...';
 
   try{
     const body=new URLSearchParams(payload);
-    const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
-    const text=await res.text(); const j=JSON.parse(text);
+    const res=await fetch(API_BASE,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
+    const text=await res.text(); 
+    const j=JSON.parse(text);
+    
     if(!res.ok || j.error) throw new Error(j.error||res.status);
-    msg.innerHTML=`<span class="ok">Sparat till "${currentSheet}" ✔</span>`;
-    loadCategories();
+    
+    msg.innerHTML='<span class="ok">Händelse sparad ✔</span>';
+    
+    // Rensa formuläret efter lyckad sparning
+    ['title','desc','start','end','link','location','category'].forEach(i=>el('#'+i).value='');
+    el('#color').value='#72a3ff';
+    
+    // Uppdatera kategorier
+    setTimeout(loadCategories, 500);
+    
   }catch(e){
     msg.innerHTML='<span class="err">Fel vid sparning: '+e.message+'</span>';
   }
@@ -272,18 +177,13 @@ async function saveEvent(){
 
 window.addEventListener('DOMContentLoaded',()=>{
   initTheme();
-  el('#apiUrl').value=localStorage.getItem('apiUrl')||DEFAULT_API_BASE;
-  el('#apiKey').value=localStorage.getItem('apiKey')||'';
-
-  setupSheetSelector();
-  updateCurrentSheet('Events'); // Sätt standardblad
-
-  el('#test').onclick=testConnection;
+  
   el('#save').onclick=saveEvent;
-  el('#clear').onclick=()=>{ ['id','title','desc','start','end','link','location'].forEach(i=>el('#'+i).value=''); };
-  el('#addSheet').onclick=addCustomSheet;
+  el('#clear').onclick=()=>{ 
+    ['title','desc','start','end','link','location','category'].forEach(i=>el('#'+i).value=''); 
+    el('#color').value='#72a3ff';
+  };
 
-  el('#apiUrl').addEventListener('change',()=>{ setApi(el('#apiUrl').value.trim()); loadCategories(); });
   loadCategories();
 });
 </script>
