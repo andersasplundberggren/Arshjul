@@ -69,7 +69,19 @@
     </div>
   </header>
 
-  <div class="wrap">
+  <!-- Lösenordsskärm -->
+  <div id="loginScreen" class="wrap" style="display:none">
+    <section class="card" style="max-width:400px; margin:40px auto; text-align:center">
+      <h2 style="margin:0 0 16px">Inloggning krävs</h2>
+      <p class="hint" style="margin-bottom:20px">Ange lösenord för att komma åt admin-funktionerna</p>
+      <input id="passwordInput" type="password" placeholder="Lösenord" style="width:100%; margin-bottom:12px" />
+      <button id="loginBtn" style="width:100%; margin-bottom:8px">Logga in</button>
+      <div id="loginError" class="err" style="margin-top:8px; display:none">Fel lösenord</div>
+    </section>
+  </div>
+
+  <!-- Huvudinnehåll -->
+  <div id="mainContent" class="wrap" style="display:none">
     <section class="card" aria-labelledby="catsHeading">
       <h2 id="catsHeading" style="margin:0 0 8px">Kategorier</h2>
       <div class="hint">Klicka för att välja en kategori, eller skriv en ny i fältet nedan.</div>
