@@ -52,6 +52,8 @@
       box-shadow: 0 2px 8px rgba(43, 89, 255, 0.3);
       cursor: pointer;
       transition: all 0.2s ease;
+      min-width: 120px;
+      justify-content: center;
     }
     
     .year-display:hover {
@@ -121,6 +123,40 @@
       .year-display {
         font-size: 14px;
         padding: 6px 12px;
+        min-width: 100px;
+      }
+      
+      header h1 {
+        font-size: 16px;
+      }
+    }
+
+    /* Förbättrad responsivitet för mycket små skärmar */
+    @media (max-width: 480px) {
+      header {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: 8px;
+        padding: 8px 12px;
+      }
+      
+      .header-left {
+        align-items: center;
+        width: 100%;
+      }
+      
+      .year-display {
+        align-self: center;
+      }
+      
+      .logo {
+        grid-row: 2;
+        height: 24px;
+      }
+      
+      .toolbar {
+        grid-row: 3;
+        justify-content: center;
       }
     }
 
@@ -163,15 +199,57 @@
     }
 
     .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; min-height:0}
-    .stage,.timeline-stage{display:grid; place-items:center; flex:1 1 auto; min-height:0}
-    svg{max-width:100%; height:auto}
+    .stage,.timeline-stage{display:grid; place-items:center; flex:1 1 auto; min-height:0; overflow:hidden}
+    svg{max-width:100%; height:auto; width:100%}
 
-    .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
-    .legend .chip{
-      display:inline-flex; align-items:center; gap:6px; padding:6px 10px;
-      border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px;
+    /* Förbättrad legend med bättre responsivitet */
+    .legend{
+      display:flex; 
+      gap:8px; 
+      flex-wrap:wrap; 
+      margin-top:10px; 
+      max-height: 120px; 
+      overflow-y: auto;
     }
-    .legend .dot{width:10px; height:10px; border-radius:999px}
+    .legend .chip{
+      display:inline-flex; 
+      align-items:center; 
+      gap:6px; 
+      padding:6px 10px;
+      border:1px solid var(--border); 
+      border-radius:999px; 
+      background:var(--card); 
+      font-size:12px;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .legend .dot{width:10px; height:10px; border-radius:999px; flex-shrink: 0}
+
+    /* Förbättrad responsivitet för legend på små skärmar */
+    @media (max-width: 768px) {
+      .legend .chip {
+        font-size: 11px;
+        padding: 4px 8px;
+        gap: 4px;
+      }
+      
+      .legend .dot {
+        width: 8px;
+        height: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .legend {
+        gap: 4px;
+        max-height: 80px;
+      }
+      
+      .legend .chip {
+        font-size: 10px;
+        padding: 3px 6px;
+      }
+    }
 
     .list{display:flex; flex-direction:column; gap:10px; overflow:auto; flex:1 1 auto; min-height:0}
     .item{background:color-mix(in hsl, var(--card) 80%, black 5%); border:1px solid var(--border); border-radius:12px; padding:10px}
@@ -198,6 +276,22 @@
       gap:12px;
       align-content:start;
     }
+    
+    /* Förbättrad responsivitet för notes */
+    @media (max-width: 768px) {
+      .notes {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 8px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .notes {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+    }
+    
     .note{
       background:linear-gradient(180deg, color-mix(in hsl, var(--accent2) 25%, transparent 75%), color-mix(in hsl, var(--card) 85%, black 5%));
       color:var(--fg);
@@ -210,12 +304,52 @@
     .note h4{ margin:0 0 6px; font-size:15px }
     .note small{ color:var(--muted) }
     .note .cat{ display:inline-block; margin-top:6px; font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background:color-mix(in hsl, var(--card) 80%, black 5%); }
+
+    /* Förbättrat SVG för bättre skalning */
+    .stage svg, .timeline-stage svg {
+      max-width: 100%;
+      height: auto;
+      width: 100%;
+    }
+    
+    /* Säkerställ att hjulet alltid syns helt */
+    @media (max-width: 768px) {
+      .stage {
+        min-height: 300px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .stage {
+        min-height: 250px;
+      }
+      
+      .wrap {
+        padding: 12px;
+        gap: 12px;
+      }
+      
+      .card {
+        padding: 10px;
+      }
+    }
+
+    /* Förbättrad header-höjd för mycket små skärmar */
+    @media (max-width: 480px) {
+      .wrap {
+        height: calc(100vh - 120px);
+      }
+      
+      body[data-view="timeline"] .wrap {
+        height: calc(100vh - 120px);
+      }
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="header-left">
-      <h1>Årshjul</h1>
+      <h1>Årshjul - Socialförvaltningen</h1>
       
       <!-- Framträdande årsvisning med navigation -->
       <div class="year-display" onclick="showYearOptions()">
@@ -432,6 +566,7 @@ function drawWheel(events){
   const stage=el('#stage'); stage.innerHTML='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','-240 -240 480 480');
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
 
   const R=200, BASE_ARC=190;
 
@@ -455,6 +590,7 @@ function drawWheel(events){
     lbl.setAttribute('y',Math.sin(a)*(R-45));
     lbl.setAttribute('text-anchor','middle');
     lbl.setAttribute('fill','var(--muted)');
+    lbl.setAttribute('font-size','14');
     lbl.textContent=MONTHS[m];
     svg.appendChild(lbl);
   }
@@ -535,6 +671,7 @@ function drawTimeline(events){
       labelTop.setAttribute('y', topPad-18);
       labelTop.setAttribute('text-anchor','middle');
       labelTop.setAttribute('fill','var(--muted)');
+      labelTop.setAttribute('font-size','12');
       labelTop.textContent=MONTHS[m];
       svg.appendChild(labelTop);
 
@@ -543,6 +680,7 @@ function drawTimeline(events){
       labelBot.setAttribute('y', H-bottomPad+24);
       labelBot.setAttribute('text-anchor','middle');
       labelBot.setAttribute('fill','var(--muted)');
+      labelBot.setAttribute('font-size','12');
       labelBot.textContent=MONTHS[m];
       svg.appendChild(labelBot);
     }
@@ -554,6 +692,7 @@ function drawTimeline(events){
     t.setAttribute('x', 10);
     t.setAttribute('y', y+4);
     t.setAttribute('fill','var(--muted)');
+    t.setAttribute('font-size','11');
     t.textContent=cat;
     svg.appendChild(t);
 
@@ -665,7 +804,6 @@ function renderNotes(events){
       ${ev.location?`<div style="margin-top:6px"><small>${ev.location}</small></div>`:''}
       ${ev.description?`<p style="margin:8px 0 0">${ev.description}</p>`:''}
       ${ev.link?`<div style="margin-top:8px"><a href="${ev.link}" target="_blank" rel="noreferrer">Öppna länk</a></div>`:''}
-      ${createCalendarButtons(ev)}
     `;
     notes.appendChild(d);
   });
