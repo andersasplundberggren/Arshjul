@@ -51,8 +51,9 @@
     .event-meta{font-size:12px; color:var(--muted); display:flex; gap:12px; flex-wrap:wrap}
     .event-actions{margin-top:8px; display:flex; gap:8px}
     .btn-small{padding:4px 8px; font-size:11px; border-radius:6px; cursor:pointer; border:1px solid}
-    .btn-edit{background:var(--accent); color:white; border-color:var(--accent)}
-    .btn-delete{background:transparent; color:var(--err); border-color:var(--err)}
+    /* Låser redigeringsknapparna till mörkt tema-utseende */
+    .btn-edit{background:#72a3ff; color:#ffffff; border-color:#72a3ff}
+    .btn-delete{background:#101a33; color:#ff7a7a; border-color:#ff7a7a}
     .empty-state{text-align:center; padding:40px; color:var(--muted)}
   </style>
 </head>
@@ -348,11 +349,12 @@ async function deleteEvent(eventId, eventTitle, btn) {
 
 function fmtDate(d){const y=d.getUTCFullYear();const m=String(d.getUTCMonth()+1).padStart(2,'0');const da=String(d.getUTCDate()).padStart(2,'0');return `${y}-${m}-${da}`;}
 function parseDate(str){ const m=/(\d{4})-(\d{2})-(\d{2})/.exec(str); if(!m) return null; return new Date(Date.UTC(+m[1],+m[2]-1,+m[3],12,0,0)); }
+
+// FIXAD VERSION: Tar bort automatisk årsjustering
 function normalizeEnd(startStr,endStr){
-  const s=parseDate(startStr); let e=parseDate(endStr);
-  if(!s || !e) return endStr;
-  while(e<=s){ e.setUTCFullYear(e.getUTCFullYear()+1); }
-  return fmtDate(e);
+  // Ta bara bort den automatiska logiken som lägger till år
+  // Låt användaren själv bestämma datumen
+  return endStr;
 }
 
 async function saveEvent(){
@@ -361,9 +363,12 @@ async function saveEvent(){
 
   let start=el('#start').value.trim();
   let end=(el('#end').value||'').trim();
-  if(end && start && parseDate(end) && parseDate(start) && parseDate(end) <= parseDate(start)){
-    const newEnd = normalizeEnd(start,end);
-    el('#end').value = newEnd;
+  
+  // FIXAD VERSION: Ta bort automatisk datum-normalisering
+  // Bara grundläggande validering utan att ändra datum
+  if(end && start && parseDate(end) && parseDate(start) && parseDate(end) < parseDate(start)){
+    msg.innerHTML='<span class="err">Slutdatum kan inte vara före startdatum</span>'; 
+    return;
   }
 
   const payload={
@@ -374,7 +379,7 @@ async function saveEvent(){
     title:el('#title').value.trim(),
     description:el('#desc').value.trim(),
     start_date:start,
-    end_date:(el('#end').value||'').trim(),
+    end_date:end,
     category:el('#category').value.trim() || '',
     color:el('#color').value || '',
     link:el('#link').value.trim() || '',
