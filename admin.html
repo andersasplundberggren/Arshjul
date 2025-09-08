@@ -128,6 +128,7 @@
 const API_BASE = 'https://script.google.com/macros/s/AKfycbzEoi4hp9OM74MielnvENqA7NdQ8w1XQcsSKqXnfYEYD0vXdYZgOOFyjBC5emlNgVfm/exec';
 const TARGET_SHEET = 'Events';  // ÄNDRA DETTA för att styra vilket blad som används
 const ADMIN_TOKEN = 'Password';  // ÄNDRA DETTA till din faktiska token
+const LOGIN_PASSWORD = 'admin';  // ÄNDRA DETTA till önskat lösenord
 // ==========================================
 
 const el=s=>document.querySelector(s);
@@ -135,6 +136,39 @@ let currentEditingId = null;
 let allEvents = [];
 let filtered = [];
 let hasUnsavedChanges = false;
+
+// ---- Lösenordsskydd ----
+function checkLogin() {
+  const savedPassword = localStorage.getItem('adminPassword');
+  const isLoggedIn = savedPassword === LOGIN_PASSWORD;
+  
+  el('#loginScreen').style.display = isLoggedIn ? 'none' : 'block';
+  el('#mainContent').style.display = isLoggedIn ? 'block' : 'none';
+  
+  return isLoggedIn;
+}
+
+function handleLogin() {
+  const password = el('#passwordInput').value.trim();
+  const errorEl = el('#loginError');
+  
+  if (password === LOGIN_PASSWORD) {
+    localStorage.setItem('adminPassword', password);
+    errorEl.style.display = 'none';
+    el('#passwordInput').value = '';
+    checkLogin();
+    loadEvents(); // Ladda händelser efter inloggning
+  } else {
+    errorEl.style.display = 'block';
+    el('#passwordInput').value = '';
+    el('#passwordInput').focus();
+  }
+}
+
+function logout() {
+  localStorage.removeItem('adminPassword');
+  checkLogin();
+}
 
 // ---- Hjälpfunktioner ----
 function escapeHTML(str){
@@ -450,6 +484,21 @@ window.addEventListener('beforeunload', (e) => {
 // ---- Init ----
 window.addEventListener('DOMContentLoaded',()=>{
   initTheme();
+
+  // Kontrollera inloggning först
+  if (!checkLogin()) {
+    // Visa bara inloggningsskärmen
+    el('#loginBtn').onclick = handleLogin;
+    el('#passwordInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+    el('#passwordInput').focus();
+    return; // Stoppa här om inte inloggad
+  }
+
+  // Visa utloggningsknappen
+  el('#logoutBtn').style.display = 'inline-block';
+  el('#logoutBtn').onclick = logout;
 
   el('#save').onclick = saveEvent;
   el('#clear').onclick = () => { if(!hasUnsavedChanges || confirm('Tömma formuläret?')) { clearForm(); hasUnsavedChanges=false; } };
